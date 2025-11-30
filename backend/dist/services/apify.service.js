@@ -15,6 +15,23 @@ function mapContentType(apifyType) {
             return 'post';
     }
 }
+function extractCarouselMedia(post) {
+    if (!post.childPosts || post.childPosts.length === 0)
+        return null;
+    console.log(`[Apify] Processing ${post.childPosts.length} child posts for carousel...`);
+    return post.childPosts.map((child, index) => {
+        // Prefer videoUrl (camelCase), fallback to video_url (snake_case)
+        const videoUrl = child.videoUrl || child.video_url;
+        // Determine if it's a video based on type or presence of a video URL
+        const isVideo = child.type?.toLowerCase() === 'video' || !!videoUrl;
+        console.log(`[Apify] Child ${index}: Type='${child.type}', videoUrl='${child.videoUrl}', video_url='${child.video_url}', isVideo=${isVideo}`);
+        return {
+            type: isVideo ? 'video' : 'image',
+            url: (isVideo && videoUrl) ? videoUrl : child.displayUrl,
+            thumbnail: isVideo ? child.displayUrl : undefined
+        };
+    });
+}
 function extractImageUrls(post) {
     const images = [];
     // Main display URL
@@ -63,6 +80,7 @@ export async function scrapeInstagramPost(instagramUrl) {
         console.log(`[Apify] Display URL: ${post.displayUrl}`);
         console.log(`[Apify] Type: ${post.type}`);
         console.log(`[Apify] Video URL: ${post.videoUrl || 'N/A'}`);
+        console.log('[Apify] Child Posts (JSON):', JSON.stringify(post.childPosts, null, 2)); // Debugging log
         // Map to our format
         const scrapedData = {
             post_id: post.shortCode || post.id,
@@ -75,6 +93,7 @@ export async function scrapeInstagramPost(instagramUrl) {
             thumbnail_url: post.displayUrl || null,
             video_url: post.videoUrl || null,
             image_urls: extractImageUrls(post),
+            carousel_media: extractCarouselMedia(post),
             likes_count: post.likesCount || 0,
             comments_count: post.commentsCount || 0,
             views_count: post.videoViewCount || null,

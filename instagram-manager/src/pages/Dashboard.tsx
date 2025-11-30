@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Bookmark, Loader2, Heart, MessageCircle, Play, Trash2, ExternalLink, Calendar, FileText } from 'lucide-react'
 import { Layout } from '@/components/layout/Layout'
 import { Button } from '@/components/ui/button'
@@ -153,15 +154,21 @@ function ContentCard({ content, onDelete, onClick }: { content: SavedContent; on
 }
 
 export function Dashboard() {
+  const [searchParams] = useSearchParams()
+  const typeFilter = searchParams.get('filter') as ContentFilters['filter']
+  
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedContentId, setSelectedContentId] = useState<string | null>(null)
   const [filters, setFilters] = useState<ContentFilters>({})
-  const { data, isLoading, error } = useContents(filters)
+  
+  // Merge local filters with URL filter
+  const activeFilters = { ...filters, filter: typeFilter || undefined }
+  const { data, isLoading, error } = useContents(activeFilters)
   const deleteContent = useDeleteContent()
 
   const contents = data?.data || []
   const hasContents = contents.length > 0
-  const hasFilters = filters.search || filters.dateFrom || filters.dateTo
+  const hasFilters = filters.search || filters.dateFrom || filters.dateTo || !!typeFilter
 
   const handleSearch = (search: string) => {
     setFilters(prev => ({ ...prev, search: search || undefined }))

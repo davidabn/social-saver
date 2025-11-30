@@ -5,6 +5,7 @@ import { supabaseAdmin } from '../lib/supabase.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { scrapeInstagramPost } from '../services/apify.service.js'
 import { queueTranscription } from '../services/assemblyai.service.js'
+import { queueImageTranscription } from '../services/ocr.service.js'
 
 // Validation schemas
 const createContentSchema = z.object({
@@ -243,6 +244,10 @@ export async function createContent(
     // Scrape Instagram post data using Apify
     const scrapedData = await scrapeInstagramPost(instagram_url)
 
+    const hasVideo = !!scrapedData.video_url
+    const hasImages = scrapedData.image_urls && scrapedData.image_urls.length > 0
+    const needsTranscription = hasVideo || hasImages
+
     // Create new content with scraped data
     const { data: content, error } = await supabaseAdmin
       .from('saved_contents')
@@ -259,13 +264,14 @@ export async function createContent(
         thumbnail_url: scrapedData.thumbnail_url,
         video_url: scrapedData.video_url,
         image_urls: scrapedData.image_urls,
+        carousel_media: scrapedData.carousel_media, // Save rich media structure
         likes_count: scrapedData.likes_count,
         comments_count: scrapedData.comments_count,
         views_count: scrapedData.views_count,
         plays_count: scrapedData.plays_count,
         posted_at: scrapedData.posted_at,
         is_processed: true,
-        transcription_status: scrapedData.video_url ? 'pending' : 'completed'
+        transcription_status: needsTranscription ? 'pending' : 'completed'
       })
       .select()
       .single()
@@ -277,10 +283,13 @@ export async function createContent(
 
     console.log(`[Content] Created content ${content.id} for user ${userId}`)
 
-    // Queue transcription for videos in background
-    if (scrapedData.video_url) {
-      console.log(`[Content] Queueing transcription for content ${content.id}`)
-      queueTranscription(content.id, scrapedData.video_url)
+    // Queue transcription
+    if (hasVideo) {
+      console.log(`[Content] Queueing video transcription for content ${content.id}`)
+      queueTranscription(content.id, scrapedData.video_url!)
+    } else if (hasImages && scrapedData.image_urls) {
+      console.log(`[Content] Queueing image transcription for content ${content.id}`)
+      queueImageTranscription(content.id, scrapedData.image_urls)
     }
 
     res.status(201).json(content)

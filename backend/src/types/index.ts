@@ -4,6 +4,12 @@ import type { Request } from 'express'
 export type ContentType = 'reel' | 'post' | 'carousel'
 export type TranscriptionStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
+export interface CarouselMedia {
+  type: 'image' | 'video'
+  url: string
+  thumbnail?: string
+}
+
 // Database types
 export interface SavedContent {
   id: string
@@ -19,6 +25,7 @@ export interface SavedContent {
   thumbnail_url: string | null
   video_url: string | null
   image_urls: string[] | null
+  carousel_media: CarouselMedia[] | null
   likes_count: number
   comments_count: number
   views_count: number | null

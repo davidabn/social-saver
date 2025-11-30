@@ -32,10 +32,17 @@ interface ApifyInstagramPost {
     type: string
     displayUrl: string
     videoUrl?: string
+    video_url?: string // Added for robustness based on log analysis
   }>
 }
 
 // Our normalized format
+export interface CarouselMedia {
+  type: 'image' | 'video'
+  url: string
+  thumbnail?: string
+}
+
 export interface ScrapedInstagramData {
   post_id: string
   content_type: ContentType
@@ -47,6 +54,7 @@ export interface ScrapedInstagramData {
   thumbnail_url: string | null
   video_url: string | null
   image_urls: string[] | null
+  carousel_media: CarouselMedia[] | null
   likes_count: number
   comments_count: number
   views_count: number | null
@@ -64,6 +72,28 @@ function mapContentType(apifyType: string): ContentType {
     default:
       return 'post'
   }
+}
+
+function extractCarouselMedia(post: ApifyInstagramPost): CarouselMedia[] | null {
+  if (!post.childPosts || post.childPosts.length === 0) return null
+
+  console.log(`[Apify] Processing ${post.childPosts.length} child posts for carousel...`)
+
+  return post.childPosts.map((child, index) => {
+    // Prefer videoUrl (camelCase), fallback to video_url (snake_case)
+    const videoUrl = child.videoUrl || child.video_url
+    
+    // Determine if it's a video based on type or presence of a video URL
+    const isVideo = child.type?.toLowerCase() === 'video' || !!videoUrl
+    
+    console.log(`[Apify] Child ${index}: Type='${child.type}', videoUrl='${child.videoUrl}', video_url='${child.video_url}', isVideo=${isVideo}`)
+
+    return {
+      type: isVideo ? 'video' : 'image',
+      url: (isVideo && videoUrl) ? videoUrl : child.displayUrl,
+      thumbnail: isVideo ? child.displayUrl : undefined
+    }
+  })
 }
 
 function extractImageUrls(post: ApifyInstagramPost): string[] | null {
@@ -129,6 +159,7 @@ export async function scrapeInstagramPost(instagramUrl: string): Promise<Scraped
     console.log(`[Apify] Display URL: ${post.displayUrl}`)
     console.log(`[Apify] Type: ${post.type}`)
     console.log(`[Apify] Video URL: ${post.videoUrl || 'N/A'}`)
+    console.log('[Apify] Child Posts (JSON):', JSON.stringify(post.childPosts, null, 2)) // Debugging log
 
     // Map to our format
     const scrapedData: ScrapedInstagramData = {
@@ -142,6 +173,7 @@ export async function scrapeInstagramPost(instagramUrl: string): Promise<Scraped
       thumbnail_url: post.displayUrl || null,
       video_url: post.videoUrl || null,
       image_urls: extractImageUrls(post),
+      carousel_media: extractCarouselMedia(post),
       likes_count: post.likesCount || 0,
       comments_count: post.commentsCount || 0,
       views_count: post.videoViewCount || null,

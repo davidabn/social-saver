@@ -1,6 +1,6 @@
-import { Search, LogOut } from 'lucide-react'
+
+import { LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -21,13 +21,6 @@ export function Header() {
             <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
           </svg>
           <span className="text-xl font-semibold">Insta Saves</span>
-        </div>
-
-        <div className="flex-1 max-w-md mx-8">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar conteúdos..." className="pl-10" disabled />
-          </div>
         </div>
 
         <div className="flex items-center gap-4">
