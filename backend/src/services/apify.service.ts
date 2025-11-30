@@ -9,6 +9,12 @@ if (!APIFY_API_KEY) {
 }
 
 // Apify response types
+interface ApifyImageResource {
+  src: string
+  config_width: number
+  config_height: number
+}
+
 interface ApifyInstagramPost {
   id: string
   shortCode: string
@@ -21,6 +27,7 @@ interface ApifyInstagramPost {
   videoViewCount?: number
   videoPlayCount?: number
   displayUrl: string
+  displayResources?: ApifyImageResource[]
   videoUrl?: string
   images?: string[]
   ownerUsername: string
@@ -31,6 +38,7 @@ interface ApifyInstagramPost {
   childPosts?: Array<{
     type: string
     displayUrl: string
+    displayResources?: ApifyImageResource[]
     videoUrl?: string
     video_url?: string // Added for robustness based on log analysis
   }>
@@ -74,6 +82,17 @@ function mapContentType(apifyType: string): ContentType {
   }
 }
 
+function getBestImageUrl(item: { displayUrl: string; displayResources?: ApifyImageResource[] }): string {
+  if (item.displayResources && item.displayResources.length > 0) {
+    // Find the resource with the largest width
+    const bestResource = item.displayResources.reduce((prev, current) => {
+      return (prev.config_width > current.config_width) ? prev : current
+    })
+    return bestResource.src
+  }
+  return item.displayUrl
+}
+
 function extractCarouselMedia(post: ApifyInstagramPost): CarouselMedia[] | null {
   if (!post.childPosts || post.childPosts.length === 0) return null
 
@@ -88,10 +107,12 @@ function extractCarouselMedia(post: ApifyInstagramPost): CarouselMedia[] | null 
     
     console.log(`[Apify] Child ${index}: Type='${child.type}', videoUrl='${child.videoUrl}', video_url='${child.video_url}', isVideo=${isVideo}`)
 
+    const bestImageUrl = getBestImageUrl(child)
+
     return {
       type: isVideo ? 'video' : 'image',
-      url: (isVideo && videoUrl) ? videoUrl : child.displayUrl,
-      thumbnail: isVideo ? child.displayUrl : undefined
+      url: (isVideo && videoUrl) ? videoUrl : bestImageUrl,
+      thumbnail: isVideo ? bestImageUrl : undefined
     }
   })
 }
@@ -99,23 +120,25 @@ function extractCarouselMedia(post: ApifyInstagramPost): CarouselMedia[] | null 
 function extractImageUrls(post: ApifyInstagramPost): string[] | null {
   const images: string[] = []
 
-  // Main display URL
-  if (post.displayUrl) {
-    images.push(post.displayUrl)
-  }
+  // Main display URL (best quality)
+  images.push(getBestImageUrl(post))
 
-  // Images array
-  if (post.images && post.images.length > 0) {
-    images.push(...post.images)
-  }
-
+  // Images array - usually redundant if we have childPosts or displayUrl, 
+  // but if present and unique, we might keep them. 
+  // However, 'post.images' usually contains simple strings without resolution info.
+  // We'll skip adding 'post.images' directly to avoid low-res duplicates if we have better sources.
+  // Or we can add them and let Set filter exact duplicates, but fuzzy duplicates (different res) won't be filtered.
+  // Strategy: Trust getBestImageUrl for the main post and child posts. 
+  // If it's a sidecar, we want child posts. If it's a single image, we want getBestImageUrl(post).
+  
   // Child posts (carousel)
   if (post.childPosts && post.childPosts.length > 0) {
     for (const child of post.childPosts) {
-      if (child.displayUrl) {
-        images.push(child.displayUrl)
-      }
+      images.push(getBestImageUrl(child))
     }
+  } else if (post.images && post.images.length > 0 && !post.displayResources) {
+      // Fallback: if no childPosts and no displayResources, but we have images array, use it.
+      images.push(...post.images)
   }
 
   // Remove duplicates
@@ -170,7 +193,7 @@ export async function scrapeInstagramPost(instagramUrl: string): Promise<Scraped
       author_profile_pic: post.ownerProfilePicUrl || null,
       author_verified: post.isVerified || false,
       caption: post.caption || null,
-      thumbnail_url: post.displayUrl || null,
+      thumbnail_url: getBestImageUrl(post) || null,
       video_url: post.videoUrl || null,
       image_urls: extractImageUrls(post),
       carousel_media: extractCarouselMedia(post),

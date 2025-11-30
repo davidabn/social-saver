@@ -76,34 +76,52 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
     }
   }
 
+  // Unified media list logic
+  const getMediaList = () => {
+    if (!content) return []
+    
+    // If it's a Reel with a video URL, treat it as a single video item
+    if (content.content_type === 'reel' && content.video_url) {
+      return [{
+        type: 'video' as const,
+        url: content.video_url,
+        thumbnail: content.thumbnail_url || undefined
+      }]
+    }
+
+    // If it has carousel media (rich structure), use it
+    if (content.carousel_media && content.carousel_media.length > 0) {
+      return content.carousel_media
+    }
+
+    // Fallback to image_urls (single post or simple carousel)
+    if (content.image_urls && content.image_urls.length > 0) {
+      return content.image_urls.map(url => ({ 
+        type: 'image' as const, 
+        url, 
+        thumbnail: undefined 
+      }))
+    }
+
+    return []
+  }
+
+  const mediaList = getMediaList()
+
   const handleDownload = async () => {
-    if (!content) return
+    if (!content || mediaList.length === 0) return
 
     setIsDownloading(true)
     try {
-      const mediaList = content.carousel_media || 
-        (content.image_urls?.map(url => ({ type: 'image', url } as const)) || [])
-
-      if (mediaList.length === 0) {
-        // Fallback for single video reel without carousel_media/image_urls
-        if (content.video_url) {
-           const url = getProxyVideoUrl(content.video_url)
-           if (url) saveAs(url, `${content.post_id || 'instagram'}.mp4`)
-        } else if (content.thumbnail_url) {
-           const url = getProxyImageUrl(content.thumbnail_url)
-           if (url) saveAs(url, `${content.post_id || 'instagram'}.jpg`)
-        }
-        return
-      }
-
       if (mediaList.length === 1) {
         // Download single item
         const item = mediaList[0]
         const proxyUrl = item.type === 'video' ? getProxyVideoUrl(item.url) : getProxyImageUrl(item.url)
         const ext = item.type === 'video' ? 'mp4' : 'jpg'
+        const filename = `${content.post_id || 'instagram'}.${ext}`
         
         if (proxyUrl) {
-          saveAs(proxyUrl, `${content.post_id || 'instagram'}.${ext}`)
+          await saveAs(proxyUrl, filename)
         }
       } else {
         // Download zip of mixed media
@@ -139,25 +157,18 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
   }
 
   const handleNextImage = () => {
-    const max = (content?.carousel_media?.length || content?.image_urls?.length || 1) - 1
+    const max = mediaList.length - 1
     setCurrentImageIndex((prev) => (prev < max ? prev + 1 : prev))
   }
-
-  // Determine current media to display
-  const mediaList = content?.carousel_media || 
-    (content?.image_urls?.map(url => ({ type: 'image', url, thumbnail: undefined } as const)) || [])
   
-  // If no list (e.g. single reel), make a fake one for the carousel logic if needed, 
-  // or strictly rely on the View logic below. 
-  // Actually, for single Reel, content_type is 'reel', handled separately in the UI block?
-  // No, let's unify if possible, or keep the 'reel' check.
-  // The current UI has: {content.content_type === 'reel' ... ? video : image}
-  // We need to support Carousel containing Videos.
-
   const currentMedia = mediaList[currentImageIndex]
-  // Fallback for single image/video if not in a list (shouldn't happen for scraped carousel)
-  const showSingleReel = content?.content_type === 'reel' && content.video_url && mediaList.length === 0
   
+  const getDownloadLabel = () => {
+    if (content?.content_type === 'reel') return 'Baixar Vídeo'
+    if (content?.content_type === 'carousel') return 'Baixar Mídia'
+    return 'Baixar Imagem'
+  }
+
   return (
     <Dialog open={open} onOpenChange={(val) => {
       if (!val) setCurrentImageIndex(0)
@@ -202,14 +213,7 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
               {/* Video Player / Image Carousel */}
               <div className="relative aspect-[9/16] bg-black rounded-lg overflow-hidden group flex items-center justify-center">
-                {showSingleReel ? (
-                  <video
-                    src={getProxyVideoUrl(content.video_url) || undefined}
-                    controls
-                    className="w-full h-full object-contain"
-                    poster={content.thumbnail_url || undefined}
-                  />
-                ) : currentMedia ? (
+                {currentMedia ? (
                   <>
                     {currentMedia.type === 'video' ? (
                       <video
@@ -373,7 +377,7 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
             <div className="flex justify-between mt-6 pt-4 border-t">
               <div className="flex gap-2">
                  {/* Download Button */}
-                {(content.image_urls?.length || 0) > 0 && (
+                {mediaList.length > 0 && (
                   <Button 
                     variant="outline" 
                     onClick={handleDownload} 
@@ -385,7 +389,7 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
                     ) : (
                       <Download className="h-4 w-4" />
                     )}
-                    {isDownloading ? 'Baixando...' : 'Baixar Imagens'}
+                    {isDownloading ? 'Baixando...' : getDownloadLabel()}
                   </Button>
                 )}
               </div>

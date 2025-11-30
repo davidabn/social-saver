@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Bookmark, Loader2, Heart, MessageCircle, Play, Trash2, ExternalLink, Calendar, FileText } from 'lucide-react'
+import { Plus, Bookmark, Loader2, Heart, MessageCircle, Play, Trash2, ExternalLink, Calendar, FileText, Image, Layers } from 'lucide-react'
 import { Layout } from '@/components/layout/Layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -67,6 +67,21 @@ function ContentCard({ content, onDelete, onClick }: { content: SavedContent; on
             Reel
           </div>
         )}
+
+        {content.content_type === 'post' && (
+          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+            <Image className="h-3 w-3" />
+            Post
+          </div>
+        )}
+
+        {content.content_type === 'carousel' && (
+          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+            <Layers className="h-3 w-3" />
+            Carrossel
+          </div>
+        )}
+
 
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           <Button

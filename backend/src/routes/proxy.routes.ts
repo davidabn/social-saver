@@ -8,7 +8,7 @@ router.get('/image', async (req: Request, res: Response) => {
   try {
     const imageUrl = req.query.url as string
 
-    console.log('[Proxy] Request received for URL:', imageUrl?.substring(0, 100) + '...')
+    // console.log('[Proxy] Request received for URL:', imageUrl?.substring(0, 100) + '...')
 
     if (!imageUrl) {
       console.log('[Proxy] Error: No URL provided')
@@ -22,7 +22,7 @@ router.get('/image', async (req: Request, res: Response) => {
                            url.hostname.includes('instagram.com') ||
                            url.hostname.endsWith('fbcdn.net')
 
-    console.log('[Proxy] Hostname:', url.hostname, 'Allowed:', isInstagramCDN)
+    // console.log('[Proxy] Hostname:', url.hostname, 'Allowed:', isInstagramCDN)
 
     if (!isInstagramCDN) {
       console.log('[Proxy] Error: URL not allowed')
@@ -30,10 +30,9 @@ router.get('/image', async (req: Request, res: Response) => {
       return
     }
 
-    // Fetch the image/video
-    console.log('[Proxy] Fetching media...')
+    // Fetch the image/video as a stream
     const response = await axios.get(imageUrl, {
-      responseType: 'arraybuffer',
+      responseType: 'stream',
       timeout: 30000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -43,29 +42,41 @@ router.get('/image', async (req: Request, res: Response) => {
       }
     })
 
-    console.log('[Proxy] Media fetched successfully, size:', response.data.length, 'bytes')
-
     // Get content type from response
     const contentType = response.headers['content-type'] || 'application/octet-stream'
-    console.log('[Proxy] Content-Type:', contentType)
+    const contentLength = response.headers['content-length']
 
-    // Set caching headers (cache for 1 hour)
-    // Cross-Origin-Resource-Policy: cross-origin allows the image to be loaded from different origins
-    res.set({
+    // Set headers
+    const headers: Record<string, string | number | undefined> = {
       'Content-Type': contentType,
       'Cache-Control': 'public, max-age=3600',
       'Access-Control-Allow-Origin': '*',
       'Cross-Origin-Resource-Policy': 'cross-origin'
-    })
+    }
 
-    res.send(Buffer.from(response.data))
+    if (contentLength) {
+      headers['Content-Length'] = contentLength
+    }
+
+    res.set(headers)
+
+    // Pipe the stream
+    response.data.pipe(res)
+
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error('[Proxy] Axios error:', error.response?.status, error.message)
+      // If headers were already sent (streaming started), we can't send JSON error.
+      // But usually error happens before stream starts.
+      if (!res.headersSent) {
+         res.status(500).json({ message: 'Failed to fetch media' })
+      }
     } else {
       console.error('[Proxy] Error fetching media:', error)
+      if (!res.headersSent) {
+         res.status(500).json({ message: 'Failed to fetch media' })
+      }
     }
-    res.status(500).json({ message: 'Failed to fetch media' })
   }
 })
 
