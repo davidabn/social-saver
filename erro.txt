@@ -1,0 +1,15 @@
+[Apify] Scraping profile: euriler (limit: 5)
+[Apify] Found 1 posts for euriler
+[Apify] Skipping post for euriler: Missing ID. Post preview: {"error":"no_items","errorDescription":"Empty or private data for provided input"}
+[Apify] Scraping profile: eusoutwin (limit: 5)
+[Apify] Found 1 posts for eusoutwin
+[Apify] Skipping post for eusoutwin: Missing ID. Post preview: {"error":"no_items","errorDescription":"Empty or private data for provided input"}
+[Apify] Scraping profile: davidabn_ (limit: 5)
+[Apify] Found 1 posts for davidabn_
+[Apify] Skipping post for davidabn_: Missing ID. Post preview: {"error":"no_items","errorDescription":"Empty or private data for provided input"}
+[Apify] Scraping profile: tntsportsbr (limit: 5)
+[Apify] Found 1 posts for tntsportsbr
+[Apify] Skipping post for tntsportsbr: Missing ID. Post preview: {"error":"no_items","errorDescription":"Empty or private data for provided input"}
+[Apify] Scraping profile: bbcbrasil (limit: 5)
+[Apify] Found 1 posts for bbcbrasil
+[Apify] Skipping post for bbcbrasil: Missing ID. Post preview: {"error":"no_items","errorDescription":"Empty or private data for provided input"}
