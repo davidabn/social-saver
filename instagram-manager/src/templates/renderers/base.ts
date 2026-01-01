@@ -67,7 +67,8 @@ export function drawGradientOverlay(
   } else if (config.direction === 'bottom') {
     gradient = ctx.createLinearGradient(0, startY, 0, endY)
     gradient.addColorStop(0, hexToRgba(config.color, config.startOpacity))
-    gradient.addColorStop(0.4, hexToRgba(config.color, config.startOpacity * 0.5))
+    gradient.addColorStop(0.15, hexToRgba(config.color, config.startOpacity * 0.3))
+    gradient.addColorStop(0.5, hexToRgba(config.color, config.endOpacity * 0.6))
     gradient.addColorStop(1, hexToRgba(config.color, config.endOpacity))
   } else {
     // full - gradient em toda a imagem

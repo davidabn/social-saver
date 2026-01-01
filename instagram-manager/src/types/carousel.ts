@@ -78,7 +78,7 @@ export const DEFAULT_SLIDE: Omit<CarouselSlide, 'id' | 'slideNumber'> = {
   imageSearchQuery: '',
   backgroundColor: '#000000',
   gradientColor: '#000000',
-  gradientOpacity: 0.6,
+  gradientOpacity: 1.0,
   textColor: '#FFFFFF'
 }
 
