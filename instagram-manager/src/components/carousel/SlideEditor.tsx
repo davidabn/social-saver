@@ -1,10 +1,12 @@
+import { useRef } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Palette } from 'lucide-react'
+import { Search, Palette, Upload, Loader2 } from 'lucide-react'
 import type { CarouselSlide } from '@/types/carousel'
 import type { CarouselTemplate, SlideLayoutType } from '@/types/template'
 import { LayoutSelector } from './LayoutSelector'
+import { useUploadImage } from '@/hooks/useCarouselDesigner'
 
 interface SlideEditorProps {
   slide: CarouselSlide
@@ -21,6 +23,25 @@ export function SlideEditor({
   isSearching = false,
   template
 }: SlideEditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadImage = useUploadImage()
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      const url = await uploadImage.mutateAsync(file)
+      onUpdate({ imageUrl: url })
+    } catch (error) {
+      console.error('Failed to upload image:', error)
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
   return (
     <div className="space-y-4 p-4">
       {/* Layout selector (only when template is active) */}
@@ -66,6 +87,26 @@ export function SlideEditor({
             placeholder="URL da imagem..."
             className="flex-1"
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadImage.isPending}
+            title="Fazer upload de imagem"
+          >
+            {uploadImage.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -76,6 +117,9 @@ export function SlideEditor({
             <Search className="h-4 w-4" />
           </Button>
         </div>
+        {uploadImage.isPending && (
+          <p className="text-xs text-muted-foreground">Fazendo upload...</p>
+        )}
       </div>
 
       {/* Color controls (hidden when template is active, as template controls colors) */}

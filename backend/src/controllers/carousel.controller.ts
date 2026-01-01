@@ -415,3 +415,61 @@ Return ONLY the JSON array, no other text.`
     next(error)
   }
 }
+
+// POST /api/carousel/upload-image
+// Upload image to Supabase Storage
+export async function uploadImage(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    const file = req.file
+    if (!file) throw new AppError('No file uploaded', 400)
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new AppError('Invalid file type. Only JPEG, PNG, and WebP are allowed', 400)
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      throw new AppError('File too large. Maximum size is 5MB', 400)
+    }
+
+    // Generate unique filename
+    const ext = file.originalname.split('.').pop() || 'jpg'
+    const filename = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+
+    console.log(`[Carousel] Uploading image: ${filename} (${file.size} bytes)`)
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabaseAdmin.storage
+      .from('carousel-images')
+      .upload(filename, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      })
+
+    if (error) {
+      console.error('[Carousel] Supabase upload error:', error)
+      throw new AppError('Failed to upload image', 500)
+    }
+
+    // Get public URL
+    const { data: urlData } = supabaseAdmin.storage
+      .from('carousel-images')
+      .getPublicUrl(filename)
+
+    console.log(`[Carousel] Image uploaded successfully: ${urlData.publicUrl}`)
+
+    res.json({ url: urlData.publicUrl })
+  } catch (error) {
+    next(error)
+  }
+}

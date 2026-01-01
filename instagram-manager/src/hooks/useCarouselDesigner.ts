@@ -150,6 +150,34 @@ async function parseScriptWithAI(input: ParseScriptInput): Promise<ParsedSlideFr
   return data.slides
 }
 
+// Upload image to Supabase Storage
+async function uploadImage(file: File): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) {
+    throw new Error('Not authenticated')
+  }
+
+  const formData = new FormData()
+  formData.append('image', file)
+
+  const response = await fetch(`${API_URL}/carousel/upload-image`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`
+      // Note: Don't set Content-Type for FormData - browser sets it with boundary
+    },
+    body: formData
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to upload image')
+  }
+
+  const data: { url: string } = await response.json()
+  return data.url
+}
+
 // Hooks
 export function useGenerateSlides() {
   return useMutation({
@@ -178,5 +206,11 @@ export function useSearchImagesForSlide() {
 export function useParseScriptWithAI() {
   return useMutation({
     mutationFn: parseScriptWithAI
+  })
+}
+
+export function useUploadImage() {
+  return useMutation({
+    mutationFn: uploadImage
   })
 }
