@@ -5,6 +5,7 @@ import { renderImageTopLayout } from './imageTop'
 import { renderTextTopLayout } from './textTop'
 import { renderFullImageLayout } from './fullImage'
 import { renderTextOnlyLayout } from './textOnly'
+import { renderTextImageTextLayout } from './textImageText'
 
 // Mapa de renderizadores por tipo de layout
 const renderers = {
@@ -12,7 +13,8 @@ const renderers = {
   imageTop: renderImageTopLayout,
   textTop: renderTextTopLayout,
   fullImage: renderFullImageLayout,
-  textOnly: renderTextOnlyLayout
+  textOnly: renderTextOnlyLayout,
+  textImageText: renderTextImageTextLayout
 }
 
 // Função principal que renderiza um slide usando o template
@@ -65,6 +67,7 @@ export { renderImageTopLayout } from './imageTop'
 export { renderTextTopLayout } from './textTop'
 export { renderFullImageLayout } from './fullImage'
 export { renderTextOnlyLayout } from './textOnly'
+export { renderTextImageTextLayout } from './textImageText'
 
 // Re-exporta funções base úteis
 export {

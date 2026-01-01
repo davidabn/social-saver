@@ -165,7 +165,7 @@ export function SlideEditor({
 
         <div className="space-y-2">
           <Label htmlFor="headlineFontSize" className="text-xs">
-            Headline: {slide.headlineFontSize || 72}px
+            Headline: {slide.headlineFontSize || template?.typography.headlineAltSize || 72}px
           </Label>
           <input
             type="range"
@@ -173,7 +173,7 @@ export function SlideEditor({
             min="40"
             max="100"
             step="2"
-            value={slide.headlineFontSize || 72}
+            value={slide.headlineFontSize || template?.typography.headlineAltSize || 72}
             onChange={(e) => onUpdate({ headlineFontSize: parseInt(e.target.value) })}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
           />
@@ -181,15 +181,15 @@ export function SlideEditor({
 
         <div className="space-y-2">
           <Label htmlFor="bodyFontSize" className="text-xs">
-            Texto: {slide.bodyFontSize || 30}px
+            Texto: {slide.bodyFontSize || template?.typography.bodySize || 30}px
           </Label>
           <input
             type="range"
             id="bodyFontSize"
             min="18"
-            max="40"
+            max="60"
             step="1"
-            value={slide.bodyFontSize || 30}
+            value={slide.bodyFontSize || template?.typography.bodySize || 30}
             onChange={(e) => onUpdate({ bodyFontSize: parseInt(e.target.value) })}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
           />

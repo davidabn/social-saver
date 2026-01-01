@@ -1,10 +1,11 @@
 // Tipos de layout disponíveis para slides
 export type SlideLayoutType =
-  | 'cover'        // Slide 1: fullscreen + badge
-  | 'imageTop'     // Slides 2,3,6: imagem topo + texto
-  | 'textTop'      // Slides 4,7,9: texto topo + imagem
-  | 'fullImage'    // Slides 5,10: imagem fullscreen + texto central
-  | 'textOnly'     // Slide 8: apenas texto
+  | 'cover'          // Slide 1: fullscreen + badge
+  | 'imageTop'       // Slides 2,3,6: imagem topo + texto
+  | 'textTop'        // Slides 4,7,9: texto topo + imagem
+  | 'fullImage'      // Slides 5,10: imagem fullscreen + texto central
+  | 'textOnly'       // Slide 8: apenas texto
+  | 'textImageText'  // Texto topo + imagem meio + texto embaixo
 
 // Paleta de cores do template
 export interface TemplateColorPalette {

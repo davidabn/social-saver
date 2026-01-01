@@ -185,6 +185,13 @@ export function SlideCanvas({
       } else if (layoutType === 'textTop') {
         imageY = (layout.imageArea.y / 100) * CANVAS_HEIGHT
         imageHeight = ((layout.imageArea.height || 65) / 100) * CANVAS_HEIGHT
+      } else if (layoutType === 'textImageText') {
+        imageY = layoutPositions?.imageY !== undefined
+          ? (layoutPositions.imageY / 100) * CANVAS_HEIGHT
+          : (layout.imageArea.y / 100) * CANVAS_HEIGHT
+        imageHeight = layoutPositions?.imageHeight !== undefined
+          ? (layoutPositions.imageHeight / 100) * CANVAS_HEIGHT
+          : ((layout.imageArea.height || 40) / 100) * CANVAS_HEIGHT
       } else {
         return bounds
       }

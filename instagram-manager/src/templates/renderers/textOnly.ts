@@ -5,7 +5,8 @@ import {
   drawHeader,
   wrapText,
   percentToPixel,
-  createFontString
+  createFontString,
+  createCondensedFontString
 } from './base'
 
 export async function renderTextOnlyLayout(
@@ -31,29 +32,47 @@ export async function renderTextOnlyLayout(
     : percentToPixel(layout.headlineArea.y, 'height') + (header.enabled ? header.height : 0)
   const headlineWidth = percentToPixel(layout.headlineArea.width, 'width')
 
-  const headlineSize = slide.headlineFontSize ?? typography.headlineSize
+  // Verifica se deve usar fonte alternativa (bold condensed uppercase)
+  const useAltFont = layout.useAltHeadline === true
+  const baseSize = useAltFont ? typography.headlineAltSize : typography.headlineSize
+  const headlineSize = slide.headlineFontSize ?? baseSize
 
   ctx.fillStyle = layout.headlineColor
-  // Usa fonte ITALIC como no original
-  ctx.font = createFontString(
-    headlineSize,
-    typography.headlineFont,
-    typography.headlineWeight,
-    typography.headlineStyle  // ITALIC
-  )
+
+  if (useAltFont) {
+    // Fonte BOLD CONDENSED para textOnly
+    ctx.font = createCondensedFontString(
+      headlineSize,
+      typography.headlineAltFont,
+      typography.headlineAltWeight
+    )
+  } else {
+    // Fonte italic padrão
+    ctx.font = createFontString(
+      headlineSize,
+      typography.headlineFont,
+      typography.headlineWeight,
+      typography.headlineStyle
+    )
+  }
   ctx.textAlign = 'center'  // Sempre centralizado para textOnly
 
-  const headlineLines = wrapText(ctx, slide.headline, headlineWidth, 20)
+  // Prepara o texto (UPPERCASE se usar fonte alternativa)
+  const headlineText = useAltFont ? slide.headline.toUpperCase() : slide.headline
+  const headlineLines = wrapText(ctx, headlineText, headlineWidth, 20)
   const lineHeight = headlineSize * 1.15
 
   headlineLines.forEach((line, index) => {
     ctx.fillText(line, CANVAS_WIDTH / 2, headlineY + (index * lineHeight))
   })
 
-  // 4. Desenha body - CENTRALIZADO
+  // Calcular onde o headline termina
+  const headlineEndY = headlineY + (headlineLines.length * lineHeight)
+
+  // 4. Desenha body - CENTRALIZADO (logo após o headline)
   const bodyY = layoutPositions?.bodyY !== undefined
     ? percentToPixel(layoutPositions.bodyY, 'height')
-    : percentToPixel(layout.bodyArea.y, 'height')
+    : headlineEndY + 30  // 30px de margem após headline
   const bodyWidth = percentToPixel(layout.bodyArea.width, 'width')
 
   const bodySize = slide.bodyFontSize ?? typography.bodySize

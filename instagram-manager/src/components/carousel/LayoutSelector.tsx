@@ -13,7 +13,7 @@ export function LayoutSelector({ template, value, onChange }: LayoutSelectorProp
   return (
     <div className="space-y-2">
       <Label>Layout do Slide</Label>
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-6 gap-1">
         {layouts.map(([key, layout]) => (
           <button
             key={key}
@@ -92,6 +92,19 @@ function LayoutIcon({ type }: { type: SlideLayoutType }) {
           <div className="flex-1" />
           <div className="p-1 space-y-0.5">
             <div className="w-full h-0.5 bg-muted-foreground/30" />
+          </div>
+        </div>
+      )
+    case 'textImageText':
+      return (
+        <div className={baseClass + ' bg-orange-500/20'}>
+          <div className="p-0.5 space-y-0.5">
+            <div className="w-full h-0.5 bg-white" />
+            <div className="w-2/3 h-0.5 bg-white" />
+          </div>
+          <div className="h-4 bg-muted mx-0.5 rounded-sm" />
+          <div className="p-0.5 space-y-0.5">
+            <div className="w-full h-0.5 bg-muted-foreground" />
           </div>
         </div>
       )

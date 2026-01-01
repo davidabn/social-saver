@@ -23,14 +23,14 @@ export const brandsDecodedTemplate: CarouselTemplate = {
     headlineWeight: 'normal',
     headlineStyle: 'italic',
 
-    // Headline alternativo (bold condensed) - para imageTop, fullImage
+    // Headline alternativo (bold condensed) - para imageTop, fullImage, textOnly
     headlineAltFont: 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif',
-    headlineAltSize: 72,
+    headlineAltSize: 80,   // Aumentado de 72 para 80
     headlineAltWeight: 'bold',
 
     // Body e Header
     bodyFont: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    bodySize: 30,
+    bodySize: 40,          // Aumentado de 30 para 40
     bodyWeight: 'normal',
     headerFont: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     headerSize: 12
@@ -206,13 +206,14 @@ export const brandsDecodedTemplate: CarouselTemplate = {
       type: 'textOnly',
       name: 'Apenas Texto',
       description: 'Foco no texto sem imagem de fundo',
-      backgroundColor: '#3D2817',
-      headlineColor: '#FF4500',
+      backgroundColor: '#000000',
+      headlineColor: '#FFFFFF',
       bodyColor: '#FFFFFF',
+      useAltHeadline: true,  // Usa fonte BOLD CONDENSED UPPERCASE
       imageArea: null,
       headlineArea: {
         x: 50,           // Centro horizontal
-        y: 30,           // Mais acima para dar espaço
+        y: 38,           // Centralizado verticalmente
         width: 90,
         align: 'center'  // CENTRALIZADO
       },
@@ -221,6 +222,42 @@ export const brandsDecodedTemplate: CarouselTemplate = {
         y: 65,
         width: 85,
         align: 'center'  // CENTRALIZADO
+      },
+      gradientOverlay: {
+        enabled: false,
+        direction: 'bottom',
+        startOpacity: 0,
+        endOpacity: 0,
+        color: '#000000'
+      }
+    },
+
+    // TextImageText: Headline no topo + imagem no meio + body embaixo (sanduíche)
+    textImageText: {
+      type: 'textImageText',
+      name: 'Texto + Imagem + Texto',
+      description: 'Headline no topo, imagem no meio, body embaixo',
+      backgroundColor: '#E85A2C',
+      headlineColor: '#FFFFFF',
+      bodyColor: '#1A1A1A',
+      imageArea: {
+        x: 4,
+        y: 28,
+        width: 92,
+        height: 40,
+        align: 'center'
+      },
+      headlineArea: {
+        x: 4,
+        y: 6,
+        width: 92,
+        align: 'left'
+      },
+      bodyArea: {
+        x: 4,
+        y: 72,
+        width: 92,
+        align: 'left'
       },
       gradientOverlay: {
         enabled: false,
