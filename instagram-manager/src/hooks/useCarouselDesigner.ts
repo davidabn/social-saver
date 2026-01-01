@@ -120,6 +120,36 @@ async function searchImagesForSlide(input: SearchImagesForSlideInput): Promise<I
   return data.images
 }
 
+// Parse script with AI
+interface ParseScriptInput {
+  script: string
+  slideCount?: number
+}
+
+interface ParsedSlideFromAI {
+  slideNumber: number
+  headline: string
+  body: string
+  imageSearchQuery?: string
+}
+
+async function parseScriptWithAI(input: ParseScriptInput): Promise<ParsedSlideFromAI[]> {
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${API_URL}/carousel/parse-script`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(input)
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to parse script with AI')
+  }
+
+  const data: { slides: ParsedSlideFromAI[] } = await response.json()
+  return data.slides
+}
+
 // Hooks
 export function useGenerateSlides() {
   return useMutation({
@@ -142,5 +172,11 @@ export function useSearchImages() {
 export function useSearchImagesForSlide() {
   return useMutation({
     mutationFn: searchImagesForSlide
+  })
+}
+
+export function useParseScriptWithAI() {
+  return useMutation({
+    mutationFn: parseScriptWithAI
   })
 }
