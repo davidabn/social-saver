@@ -8,7 +8,7 @@ export function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
   if (url.startsWith('data:')) return url
   if (url.includes('/api/proxy/')) return url
-  if (url.includes('unsplash.com') || url.includes('pexels.com') || url.includes('pixabay.com')) {
+  if (url.includes('unsplash.com') || url.includes('pexels.com') || url.includes('pixabay.com') || url.includes('supabase.co')) {
     return url
   }
   return `${API_URL}/proxy/image?url=${encodeURIComponent(url)}`
