@@ -120,6 +120,11 @@ export function SlideEditor({
         {uploadImage.isPending && (
           <p className="text-xs text-muted-foreground">Fazendo upload...</p>
         )}
+        {uploadImage.isError && (
+          <p className="text-xs text-red-500">
+            Erro: {uploadImage.error?.message || 'Falha no upload. Max 10MB.'}
+          </p>
+        )}
       </div>
 
       {/* Color controls (hidden when template is active, as template controls colors) */}

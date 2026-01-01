@@ -436,10 +436,10 @@ export async function uploadImage(
       throw new AppError('Invalid file type. Only JPEG, PNG, and WebP are allowed', 400)
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024 // 10MB
     if (file.size > maxSize) {
-      throw new AppError('File too large. Maximum size is 5MB', 400)
+      throw new AppError('File too large. Maximum size is 10MB', 400)
     }
 
     // Generate unique filename
