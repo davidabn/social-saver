@@ -1,7 +1,13 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -24,6 +30,7 @@ import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
 import { getDefaultLayoutForSlide } from '@/templates/renderers'
 import type { ParsedSlide } from '@/utils/scriptParser'
+import { exportSlidesAsPsd, exportSlidesAsPsdZip } from '@/utils/psdExport'
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9)
@@ -262,8 +269,8 @@ export default function CarouselDesigner() {
     }
   }
 
-  // Export all slides
-  const handleExport = async () => {
+  // Export all slides as PNG
+  const handleExportPNG = async () => {
     setIsExporting(true)
 
     try {
@@ -284,6 +291,54 @@ export default function CarouselDesigner() {
       }
     } catch (error) {
       console.error('Failed to export slides:', error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Export all slides as PSD (for Canva import)
+  const handleExportPSD = async () => {
+    if (!selectedTemplate) {
+      console.error('Template is required for PSD export')
+      return
+    }
+
+    setIsExporting(true)
+
+    try {
+      await exportSlidesAsPsd(
+        design.slides,
+        selectedTemplate,
+        headerTexts,
+        design.name,
+        profileBranding
+      )
+    } catch (error) {
+      console.error('Failed to export PSD:', error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Export all slides as ZIP containing PSDs
+  const handleExportPSDZip = async () => {
+    if (!selectedTemplate) {
+      console.error('Template is required for PSD export')
+      return
+    }
+
+    setIsExporting(true)
+
+    try {
+      await exportSlidesAsPsdZip(
+        design.slides,
+        selectedTemplate,
+        headerTexts,
+        design.name,
+        profileBranding
+      )
+    } catch (error) {
+      console.error('Failed to export PSD ZIP:', error)
     } finally {
       setIsExporting(false)
     }
@@ -401,17 +456,41 @@ export default function CarouselDesigner() {
             </SheetContent>
           </Sheet>
 
-          <Button
-            onClick={handleExport}
-            disabled={isExporting || design.slides.length === 0}
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            Exportar
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={isExporting || design.slides.length === 0}>
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Exportar
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportPNG}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar como PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExportPSD}
+                disabled={!selectedTemplate}
+                title={!selectedTemplate ? 'Selecione um template primeiro' : ''}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Exportar para Canva (PSD)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExportPSDZip}
+                disabled={!selectedTemplate}
+                title={!selectedTemplate ? 'Selecione um template primeiro' : ''}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar PSD em ZIP
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
