@@ -534,3 +534,295 @@ export async function exportSlidesAsPsdZip(
   link.click()
   URL.revokeObjectURL(link.href)
 }
+
+// Convert pixels to mm for jsPDF
+function pxToMm(px: number): number {
+  return px * 0.264583
+}
+
+// Convert hex color to RGB for jsPDF
+function hexToRgbValues(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      }
+    : { r: 255, g: 255, b: 255 }
+}
+
+// Render only visual layers (background, image, gradient) without text
+async function renderBackgroundLayers(
+  slide: CarouselSlide,
+  _template: CarouselTemplate,
+  layout: SlideLayoutConfig,
+  profileBranding?: ProfileBranding
+): Promise<HTMLCanvasElement> {
+  const canvas = document.createElement('canvas')
+  canvas.width = CANVAS_WIDTH
+  canvas.height = CANVAS_HEIGHT
+  const ctx = canvas.getContext('2d')!
+
+  // Background color
+  ctx.fillStyle = layout.backgroundColor
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+  // Image
+  const layoutPositions = slide.customPositions?.[slide.layoutType || 'cover']
+  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
+
+  if (imageToUse && layout.imageArea) {
+    try {
+      const img = await loadImage(imageToUse)
+      drawImageCover(
+        ctx, img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT,
+        layoutPositions?.imageScale ?? 1.0,
+        layoutPositions?.imageOffsetX ?? 0,
+        layoutPositions?.imageOffsetY ?? 0
+      )
+    } catch (error) {
+      console.error('Failed to load image for PDF:', error)
+    }
+  }
+
+  // Gradient overlay
+  const overlayConfig = {
+    ...layout.gradientOverlay,
+    endOpacity: slide.gradientOpacity ?? layout.gradientOverlay.endOpacity
+  }
+  drawGradientOverlay(ctx, overlayConfig)
+
+  // Avatar (branding photo - as image, only slide 1)
+  if (slide.slideNumber === 1 && profileBranding?.avatarUrl) {
+    const avatarSize = 56
+    const defaultBrandingX = layout.headlineArea.x
+    const baseHeadlineY = layoutPositions?.headlineY !== undefined
+      ? layoutPositions.headlineY
+      : layout.headlineArea.y
+    const defaultBrandingY = baseHeadlineY - 8
+
+    const avatarX = percentToPixel(layoutPositions?.brandingX ?? defaultBrandingX, 'width')
+    const avatarY = percentToPixel(layoutPositions?.brandingY ?? defaultBrandingY, 'height')
+
+    try {
+      const avatarImg = await loadImage(profileBranding.avatarUrl)
+      const imgWidth = avatarImg.naturalWidth || avatarImg.width
+      const imgHeight = avatarImg.naturalHeight || avatarImg.height
+      const minDim = Math.min(imgWidth, imgHeight)
+      const sx = (imgWidth - minDim) / 2
+      const sy = (imgHeight - minDim) / 2
+
+      // Create circular clip
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+      ctx.closePath()
+      ctx.clip()
+      ctx.drawImage(avatarImg, sx, sy, minDim, minDim, avatarX, avatarY, avatarSize, avatarSize)
+      ctx.restore()
+
+      // Verified badge
+      if (profileBranding.isVerified) {
+        const badgeX = avatarX + avatarSize - 8
+        const badgeY = avatarY + avatarSize - 8
+        const badgeRadius = 10
+
+        ctx.fillStyle = '#1DA1F2'
+        ctx.beginPath()
+        ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = 2
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+        ctx.beginPath()
+        ctx.moveTo(badgeX - 4, badgeY)
+        ctx.lineTo(badgeX - 1, badgeY + 3)
+        ctx.lineTo(badgeX + 5, badgeY - 3)
+        ctx.stroke()
+      }
+    } catch (e) {
+      console.error('Failed to load avatar for PDF:', e)
+    }
+  }
+
+  return canvas
+}
+
+// Simple text wrapping for PDF (returns array of lines)
+function splitTextForPdf(text: string, maxCharsPerLine: number): string[] {
+  if (!text) return []
+
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    if (testLine.length > maxCharsPerLine && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine)
+  }
+
+  return lines
+}
+
+// Export all slides as a single multi-page PDF with editable text
+export async function exportSlidesAsPdfEditable(
+  slides: CarouselSlide[],
+  template: CarouselTemplate,
+  headerTexts: HeaderTexts,
+  designName: string,
+  profileBranding?: ProfileBranding,
+  onProgress?: (current: number, total: number) => void
+): Promise<void> {
+  // Dynamically import jsPDF
+  const { jsPDF } = await import('jspdf')
+
+  const widthMm = pxToMm(CANVAS_WIDTH)
+  const heightMm = pxToMm(CANVAS_HEIGHT)
+
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [widthMm, heightMm]
+  })
+
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i]
+    const layoutType = slide.layoutType || 'cover'
+    const layout = template.layouts[layoutType]
+    const layoutPositions = slide.customPositions?.[layoutType]
+
+    onProgress?.(i + 1, slides.length)
+
+    // Add new page (except first)
+    if (i > 0) {
+      pdf.addPage([widthMm, heightMm], 'portrait')
+    }
+
+    // 1. Background + Image + Gradient (as image)
+    const bgCanvas = await renderBackgroundLayers(slide, template, layout, profileBranding)
+    const bgImage = bgCanvas.toDataURL('image/jpeg', 0.95)
+    pdf.addImage(bgImage, 'JPEG', 0, 0, widthMm, heightMm)
+
+    // 2. Header texts (native text)
+    if (template.header.enabled) {
+      const headerColor = hexToRgbValues(template.header.textColor)
+      pdf.setTextColor(headerColor.r, headerColor.g, headerColor.b)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(pxToMm(template.typography.headerSize) * 2.83) // Convert mm to pt
+
+      const headerY = pxToMm(template.header.height / 2 + 5)
+
+      // Left
+      pdf.text(headerTexts.left.toUpperCase(), pxToMm(30), headerY)
+      // Center
+      pdf.text(headerTexts.center.toUpperCase(), widthMm / 2, headerY, { align: 'center' })
+      // Right
+      pdf.text(headerTexts.right.toUpperCase(), widthMm - pxToMm(30), headerY, { align: 'right' })
+    }
+
+    // 3. Branding text (slide 1 only)
+    if (slide.slideNumber === 1 && profileBranding && (profileBranding.displayName || profileBranding.username)) {
+      const defaultBrandingX = layout.headlineArea.x
+      const baseHeadlineY = layoutPositions?.headlineY !== undefined
+        ? layoutPositions.headlineY
+        : layout.headlineArea.y
+      const defaultBrandingY = baseHeadlineY - 8
+
+      const textX = pxToMm(percentToPixel(layoutPositions?.brandingX ?? defaultBrandingX, 'width') + 56 + 16)
+      const brandingY = pxToMm(percentToPixel(layoutPositions?.brandingY ?? defaultBrandingY, 'height'))
+
+      const headlineColor = hexToRgbValues(layout.headlineColor)
+
+      // Display name
+      pdf.setTextColor(headlineColor.r, headlineColor.g, headlineColor.b)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(22 * 0.75) // Convert px to pt (approx)
+      pdf.text(profileBranding.displayName || '', textX, brandingY + pxToMm(20))
+
+      // Username
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(18 * 0.75)
+      pdf.setTextColor(headlineColor.r, headlineColor.g, headlineColor.b)
+      pdf.text(`@${profileBranding.username || ''}`, textX, brandingY + pxToMm(46))
+    }
+
+    // 4. Headline (native text)
+    const headlineX = pxToMm(percentToPixel(layout.headlineArea.x, 'width'))
+    const headlineY = pxToMm(layoutPositions?.headlineY !== undefined
+      ? percentToPixel(layoutPositions.headlineY, 'height')
+      : percentToPixel(layout.headlineArea.y, 'height'))
+
+    const headlineSize = slide.headlineFontSize ?? template.typography.headlineSize
+    const headlineColor = hexToRgbValues(layout.headlineColor)
+
+    pdf.setTextColor(headlineColor.r, headlineColor.g, headlineColor.b)
+    pdf.setFont('times', 'bolditalic') // Georgia-like
+    pdf.setFontSize(headlineSize * 0.75) // Convert px to pt
+
+    // Wrap headline text
+    const headlineMaxChars = Math.floor((layout.headlineArea.width / 100) * 40) // Approximate chars per line
+    const headlineLines = splitTextForPdf(slide.headline, headlineMaxChars)
+    const headlineLineHeight = pxToMm(headlineSize * 1.15)
+
+    let headlineAlign: 'left' | 'center' | 'right' = 'left'
+    let headlineXPos = headlineX
+    if (layout.headlineArea.align === 'center') {
+      headlineAlign = 'center'
+      headlineXPos = widthMm / 2
+    } else if (layout.headlineArea.align === 'right') {
+      headlineAlign = 'right'
+      headlineXPos = widthMm - headlineX
+    }
+
+    headlineLines.forEach((line, idx) => {
+      pdf.text(line, headlineXPos, headlineY + (idx * headlineLineHeight), { align: headlineAlign })
+    })
+
+    // 5. Body (native text)
+    const bodyX = pxToMm(percentToPixel(layout.bodyArea.x, 'width'))
+    const bodyY = layoutPositions?.bodyY !== undefined
+      ? pxToMm(percentToPixel(layoutPositions.bodyY, 'height'))
+      : headlineY + (headlineLines.length * headlineLineHeight) + pxToMm(30)
+
+    const bodySize = slide.bodyFontSize ?? template.typography.bodySize
+    const bodyColor = hexToRgbValues(layout.bodyColor)
+
+    pdf.setTextColor(bodyColor.r, bodyColor.g, bodyColor.b)
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(bodySize * 0.75)
+
+    // Wrap body text
+    const bodyMaxChars = Math.floor((layout.bodyArea.width / 100) * 50)
+    const bodyLines = splitTextForPdf(slide.body, bodyMaxChars)
+    const bodyLineHeight = pxToMm(bodySize * 1.4)
+
+    let bodyAlign: 'left' | 'center' | 'right' = 'left'
+    let bodyXPos = bodyX
+    if (layout.bodyArea.align === 'center') {
+      bodyAlign = 'center'
+      bodyXPos = widthMm / 2
+    } else if (layout.bodyArea.align === 'right') {
+      bodyAlign = 'right'
+      bodyXPos = widthMm - bodyX
+    }
+
+    bodyLines.forEach((line, idx) => {
+      pdf.text(line, bodyXPos, bodyY + (idx * bodyLineHeight), { align: bodyAlign })
+    })
+  }
+
+  // Save PDF
+  pdf.save(`${designName}-canva.pdf`)
+}

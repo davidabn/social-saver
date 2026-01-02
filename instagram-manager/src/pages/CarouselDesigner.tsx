@@ -30,7 +30,7 @@ import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
 import { getDefaultLayoutForSlide } from '@/templates/renderers'
 import type { ParsedSlide } from '@/utils/scriptParser'
-import { exportSlidesAsPsd, exportSlidesAsPsdZip } from '@/utils/psdExport'
+import { exportSlidesAsPsd, exportSlidesAsPsdZip, exportSlidesAsPdfEditable } from '@/utils/psdExport'
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9)
@@ -344,6 +344,30 @@ export default function CarouselDesigner() {
     }
   }
 
+  // Export all slides as multi-page PDF with editable text (for Canva)
+  const handleExportPDF = async () => {
+    if (!selectedTemplate) {
+      console.error('Template is required for PDF export')
+      return
+    }
+
+    setIsExporting(true)
+
+    try {
+      await exportSlidesAsPdfEditable(
+        design.slides,
+        selectedTemplate,
+        headerTexts,
+        design.name,
+        profileBranding
+      )
+    } catch (error) {
+      console.error('Failed to export PDF:', error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   // Import script - cria slides a partir de texto colado
   const handleImportScript = useCallback((parsedSlides: ParsedSlide[]) => {
     const newSlides: CarouselSlide[] = parsedSlides.map((parsed) => ({
@@ -474,12 +498,20 @@ export default function CarouselDesigner() {
                 Exportar como PNG
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={handleExportPDF}
+                disabled={!selectedTemplate}
+                title={!selectedTemplate ? 'Selecione um template primeiro' : ''}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Exportar para Canva (PDF)
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={handleExportPSD}
                 disabled={!selectedTemplate}
                 title={!selectedTemplate ? 'Selecione um template primeiro' : ''}
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Exportar para Canva (PSD)
+                Exportar PSD (1 por slide)
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleExportPSDZip}
