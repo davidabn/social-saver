@@ -35,7 +35,8 @@ export async function renderTextOnlyLayout(
   // Verifica se deve usar fonte alternativa (bold condensed uppercase)
   const useAltFont = layout.useAltHeadline === true
   const baseSize = useAltFont ? typography.headlineAltSize : typography.headlineSize
-  const headlineSize = slide.headlineFontSize ?? baseSize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? baseSize
 
   ctx.fillStyle = layout.headlineColor
 
@@ -55,7 +56,9 @@ export async function renderTextOnlyLayout(
       typography.headlineStyle
     )
   }
-  ctx.textAlign = 'center'  // Sempre centralizado para textOnly
+  // Usa alinhamento customizado do layout ou 'center' como padrão para textOnly
+  const headlineAlign = layoutPositions?.headlineAlign ?? 'center'
+  ctx.textAlign = headlineAlign
 
   // Prepara o texto (UPPERCASE se usar fonte alternativa)
   const headlineText = useAltFont ? slide.headline.toUpperCase() : slide.headline
@@ -63,7 +66,12 @@ export async function renderTextOnlyLayout(
   const lineHeight = headlineSize * 1.15
 
   headlineLines.forEach((line, index) => {
-    ctx.fillText(line, CANVAS_WIDTH / 2, headlineY + (index * lineHeight))
+    const x = headlineAlign === 'center'
+      ? CANVAS_WIDTH / 2
+      : headlineAlign === 'right'
+        ? CANVAS_WIDTH - percentToPixel(layout.headlineArea.x, 'width')
+        : percentToPixel(layout.headlineArea.x, 'width')
+    ctx.fillText(line, x, headlineY + (index * lineHeight))
   })
 
   // Calcular onde o headline termina
@@ -75,16 +83,24 @@ export async function renderTextOnlyLayout(
     : headlineEndY + 30  // 30px de margem após headline
   const bodyWidth = percentToPixel(layout.bodyArea.width, 'width')
 
-  const bodySize = slide.bodyFontSize ?? typography.bodySize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
   ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
-  ctx.textAlign = 'center'  // Sempre centralizado para textOnly
+  // Usa alinhamento customizado do layout ou 'center' como padrão para textOnly
+  const bodyAlign = layoutPositions?.bodyAlign ?? 'center'
+  ctx.textAlign = bodyAlign
 
   const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
   const bodyLineHeight = bodySize * 1.5
 
   bodyLines.forEach((line, index) => {
-    ctx.fillText(line, CANVAS_WIDTH / 2, bodyY + (index * bodyLineHeight))
+    const x = bodyAlign === 'center'
+      ? CANVAS_WIDTH / 2
+      : bodyAlign === 'right'
+        ? CANVAS_WIDTH - percentToPixel(layout.bodyArea.x, 'width')
+        : percentToPixel(layout.bodyArea.x, 'width')
+    ctx.fillText(line, x, bodyY + (index * bodyLineHeight))
   })
 }

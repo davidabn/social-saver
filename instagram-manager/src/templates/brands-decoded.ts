@@ -7,7 +7,7 @@ export const brandsDecodedTemplate: CarouselTemplate = {
   thumbnail: '/templates/brands-decoded-thumb.png',
 
   palette: {
-    primary: '#FF4500',        // Vermelho-laranja (headlines, destaques)
+    primary: '#D93500',        // Vermelho-laranja (headlines, destaques)
     secondary: '#FF6633',      // Laranja mais claro
     background: '#FFFACD',     // Fundo claro/amarelado (creme)
     backgroundAlt: '#3D2817',  // Fundo marrom escuro
@@ -42,15 +42,15 @@ export const brandsDecodedTemplate: CarouselTemplate = {
     defaultLeft: 'ESTUDO DE CASO',
     defaultCenter: 'BRANDS DECODED',
     defaultRight: '© COPYRIGHT 2025',
-    textColor: '#3D2817'
+    textColor: '#FFFFFF'
   },
 
   decorations: {
     underlineHeadline: true,
-    underlineColor: '#FF4500',
+    underlineColor: '#D93500',
     underlineThickness: 3,
     separatorLine: true,
-    separatorColor: '#FF4500',
+    separatorColor: '#FFFFFF',
     separatorThickness: 2
   },
 
@@ -72,7 +72,7 @@ export const brandsDecodedTemplate: CarouselTemplate = {
       },
       headlineArea: {
         x: 4,
-        y: 60,  // Parte inferior da tela, mas não tão baixo
+        y: 78,  // Bem embaixo, próximo ao fim do slide
         width: 92,
         align: 'left'
       },
@@ -134,7 +134,7 @@ export const brandsDecodedTemplate: CarouselTemplate = {
       name: 'Texto no Topo',
       description: 'Headline destacado no topo com imagem abaixo',
       backgroundColor: '#FFFACD',
-      headlineColor: '#FF4500',
+      headlineColor: '#D93500',
       bodyColor: '#FFFFFF',
       imageArea: {
         x: 0,
@@ -151,7 +151,7 @@ export const brandsDecodedTemplate: CarouselTemplate = {
       },
       bodyArea: {
         x: 4,
-        y: 88,  // Parte inferior da imagem (sobre o gradient)
+        y: 78,  // Subido de 88 para 78 - mais espaço para o texto
         width: 92,
         align: 'left'
       },
@@ -257,6 +257,117 @@ export const brandsDecodedTemplate: CarouselTemplate = {
         x: 4,
         y: 72,
         width: 92,
+        align: 'left'
+      },
+      gradientOverlay: {
+        enabled: false,
+        direction: 'bottom',
+        startOpacity: 0,
+        endOpacity: 0,
+        color: '#000000'
+      }
+    },
+
+    // ImageBottom: Texto no topo + imagem na parte inferior (com bordas arredondadas)
+    imageBottom: {
+      type: 'imageBottom',
+      name: 'Imagem Embaixo',
+      description: 'Texto no topo com imagem na parte inferior',
+      backgroundColor: '#3D2817',  // Fundo escuro
+      headlineColor: '#FFFFFF',
+      bodyColor: '#FFFFFF',
+      useAltHeadline: false,  // Usa Georgia itálico (não condensed)
+      imageArea: {
+        x: 0,
+        y: 55,
+        width: 100,
+        height: 40,
+        align: 'center'
+      },
+      headlineArea: {
+        x: 4,
+        y: 8,
+        width: 92,
+        align: 'left'
+      },
+      bodyArea: {
+        x: 4,
+        y: 25,  // Será recalculado dinamicamente após o headline
+        width: 92,
+        align: 'left'
+      },
+      gradientOverlay: {
+        enabled: false,
+        direction: 'bottom',
+        startOpacity: 0,
+        endOpacity: 0,
+        color: '#000000'
+      }
+    },
+
+    // ImageLeft: Imagem na esquerda (40%) + texto na direita (60%)
+    imageLeft: {
+      type: 'imageLeft',
+      name: 'Imagem à Esquerda',
+      description: 'Imagem na esquerda com texto na direita',
+      backgroundColor: '#000000',
+      headlineColor: '#FFFFFF',
+      bodyColor: '#FFFFFF',
+      useAltHeadline: false,
+      imageArea: {
+        x: 0,
+        y: 0,
+        width: 40,
+        height: 100,
+        align: 'center'
+      },
+      headlineArea: {
+        x: 44,  // 40% + 4% margem
+        y: 8,
+        width: 52,  // 60% - 8% margens
+        align: 'left'
+      },
+      bodyArea: {
+        x: 44,
+        y: 30,  // Será recalculado dinamicamente após o headline
+        width: 52,
+        align: 'left'
+      },
+      gradientOverlay: {
+        enabled: false,
+        direction: 'bottom',
+        startOpacity: 0,
+        endOpacity: 0,
+        color: '#000000'
+      }
+    },
+
+    // ImageRight: Texto na esquerda (60%) + imagem na direita (40%)
+    imageRight: {
+      type: 'imageRight',
+      name: 'Imagem à Direita',
+      description: 'Imagem na direita com texto na esquerda',
+      backgroundColor: '#000000',
+      headlineColor: '#FFFFFF',
+      bodyColor: '#FFFFFF',
+      useAltHeadline: false,
+      imageArea: {
+        x: 60,  // Começa em 60%
+        y: 0,
+        width: 40,
+        height: 100,
+        align: 'center'
+      },
+      headlineArea: {
+        x: 4,
+        y: 8,
+        width: 52,  // 60% - 8% margens
+        align: 'left'
+      },
+      bodyArea: {
+        x: 4,
+        y: 30,  // Será recalculado dinamicamente após o headline
+        width: 52,
         align: 'left'
       },
       gradientOverlay: {

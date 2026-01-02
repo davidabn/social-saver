@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon, ChevronDown, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -22,6 +22,8 @@ import { SlideCanvas, generateFullResCanvas } from '@/components/carousel/SlideC
 import { SlideEditor } from '@/components/carousel/SlideEditor'
 import { ImageSearchModal } from '@/components/carousel/ImageSearchModal'
 import { TemplateSelector } from '@/components/carousel/TemplateSelector'
+import { PaletteSelector } from '@/components/carousel/PaletteSelector'
+import { DEFAULT_PALETTE, type ColorPalette } from '@/templates/palettes'
 import { ScriptImportModal } from '@/components/carousel/ScriptImportModal'
 import { useGenerateSlidesWithImages, useSearchImages, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
 import { usePersona } from '@/hooks/useAI'
@@ -68,6 +70,8 @@ export default function CarouselDesigner() {
   const [selectedSlideId, setSelectedSlideId] = useState<string>(design.slides[0]?.id || '')
   const [showImageSearch, setShowImageSearch] = useState(false)
   const [showScriptImport, setShowScriptImport] = useState(false)
+  const [showPaletteSelector, setShowPaletteSelector] = useState(false)
+  const [customPalette, setCustomPalette] = useState<ColorPalette>(DEFAULT_PALETTE)
   const [isExporting, setIsExporting] = useState(false)
   const [topic, setTopic] = useState('')
 
@@ -280,7 +284,8 @@ export default function CarouselDesigner() {
           design.brandingText,
           selectedTemplate || undefined,
           selectedTemplate ? headerTexts : undefined,
-          profileBranding
+          profileBranding,
+          selectedTemplate ? customPalette : undefined
         )
         const link = document.createElement('a')
         link.download = `${design.name}-slide-${slide.slideNumber}.png`
@@ -424,6 +429,19 @@ export default function CarouselDesigner() {
             <Layout className="h-4 w-4 mr-2" />
             {selectedTemplate ? selectedTemplate.name : 'Templates'}
           </Button>
+
+          {/* Palette button (only when template is selected) */}
+          {selectedTemplate && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPaletteSelector(true)}
+              className={customPalette.id !== 'original' ? 'border-primary text-primary' : ''}
+            >
+              <Palette className="h-4 w-4 mr-2" />
+              Cores
+            </Button>
+          )}
 
           <Sheet>
             <SheetTrigger asChild>
@@ -601,6 +619,7 @@ export default function CarouselDesigner() {
               template={selectedTemplate || undefined}
               headerTexts={selectedTemplate ? headerTexts : undefined}
               profileBranding={profileBranding}
+              customPalette={selectedTemplate ? customPalette : undefined}
               isPreview={true}
               scale={0.5}
               onPositionChange={(updates) => updateSlide(selectedSlide.id, updates)}
@@ -645,6 +664,14 @@ export default function CarouselDesigner() {
         onClose={() => setShowTemplateSelector(false)}
         selectedTemplateId={selectedTemplate?.id}
         onSelectTemplate={handleSelectTemplate}
+      />
+
+      {/* Palette selector modal */}
+      <PaletteSelector
+        open={showPaletteSelector}
+        onClose={() => setShowPaletteSelector(false)}
+        currentPalette={customPalette}
+        onSelectPalette={setCustomPalette}
       />
 
       {/* Script import modal */}

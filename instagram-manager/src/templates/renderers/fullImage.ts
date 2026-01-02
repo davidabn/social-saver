@@ -67,7 +67,8 @@ export async function renderFullImageLayout(
   // Verifica se deve usar fonte alternativa (bold condensed uppercase)
   const useAltFont = layout.useAltHeadline === true
   const baseSize = useAltFont ? typography.headlineAltSize : typography.headlineSize
-  const headlineSize = slide.headlineFontSize ?? baseSize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? baseSize
 
   if (useAltFont) {
     // Fonte BOLD CONDENSED para fullImage
@@ -85,7 +86,9 @@ export async function renderFullImageLayout(
       typography.headlineStyle
     )
   }
-  ctx.textAlign = layout.headlineArea.align
+  // Usa alinhamento customizado do layout ou o padrão do template
+  const headlineAlign = layoutPositions?.headlineAlign ?? layout.headlineArea.align
+  ctx.textAlign = headlineAlign
 
   // Prepara o texto (UPPERCASE se usar fonte alternativa)
   const headlineText = useAltFont ? slide.headline.toUpperCase() : slide.headline
@@ -93,9 +96,9 @@ export async function renderFullImageLayout(
   const lineHeight = headlineSize * 1.15
 
   headlineLines.forEach((line, index) => {
-    const x = layout.headlineArea.align === 'center'
+    const x = headlineAlign === 'center'
       ? CANVAS_WIDTH / 2
-      : layout.headlineArea.align === 'right'
+      : headlineAlign === 'right'
         ? CANVAS_WIDTH - headlineX
         : headlineX
 
@@ -121,19 +124,22 @@ export async function renderFullImageLayout(
     : percentToPixel(layout.bodyArea.y, 'height')
   const bodyWidth = percentToPixel(layout.bodyArea.width, 'width')
 
-  const bodySize = slide.bodyFontSize ?? typography.bodySize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
   ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
-  ctx.textAlign = layout.bodyArea.align
+  // Usa alinhamento customizado do layout ou o padrão do template
+  const bodyAlign = layoutPositions?.bodyAlign ?? layout.bodyArea.align
+  ctx.textAlign = bodyAlign
 
   const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
   const bodyLineHeight = bodySize * 1.4
 
   bodyLines.forEach((line, index) => {
-    const x = layout.bodyArea.align === 'center'
+    const x = bodyAlign === 'center'
       ? CANVAS_WIDTH / 2
-      : layout.bodyArea.align === 'right'
+      : bodyAlign === 'right'
         ? CANVAS_WIDTH - bodyX
         : bodyX
 

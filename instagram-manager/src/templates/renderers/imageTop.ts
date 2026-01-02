@@ -100,9 +100,9 @@ export async function renderImageTopLayout(
   // Verifica se deve usar fonte alternativa (bold condensed uppercase)
   const useAltFont = layout.useAltHeadline === true
 
-  // Usa tamanho do slide se definido, senão calcula dinamicamente
+  // Usa tamanho do layout se definido, depois do slide, senão calcula dinamicamente
   const baseHeadlineSize = useAltFont ? typography.headlineAltSize : typography.headlineSize
-  const dynamicHeadlineSize = slide.headlineFontSize ?? calculateDynamicFontSize(
+  const dynamicHeadlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? calculateDynamicFontSize(
     totalTextLength,
     availableTextHeight,
     baseHeadlineSize - 8,  // min: 8px menor que base
@@ -126,7 +126,9 @@ export async function renderImageTopLayout(
       typography.headlineStyle
     )
   }
-  ctx.textAlign = layout.headlineArea.align
+  // Usa alinhamento customizado do layout ou o padrão do template
+  const headlineAlign = layoutPositions?.headlineAlign ?? layout.headlineArea.align
+  ctx.textAlign = headlineAlign
 
   // Prepara o texto (UPPERCASE se usar fonte alternativa)
   const headlineText = useAltFont ? slide.headline.toUpperCase() : slide.headline
@@ -134,9 +136,9 @@ export async function renderImageTopLayout(
   const lineHeight = dynamicHeadlineSize * 1.15
 
   headlineLines.forEach((line, index) => {
-    const x = layout.headlineArea.align === 'center'
+    const x = headlineAlign === 'center'
       ? CANVAS_WIDTH / 2
-      : layout.headlineArea.align === 'right'
+      : headlineAlign === 'right'
         ? CANVAS_WIDTH - headlineX
         : headlineX
 
@@ -178,9 +180,9 @@ export async function renderImageTopLayout(
     : headlineEndY + (decorations.separatorLine ? 60 : 50)  // Margem generosa após headline
   const bodyWidth = percentToPixel(layout.bodyArea.width, 'width')
 
-  // Usa tamanho do slide se definido, senão calcula dinamicamente
+  // Usa tamanho do layout se definido, depois do slide, senão calcula dinamicamente
   const remainingHeight = CANVAS_HEIGHT - bodyY - 40
-  const dynamicBodySize = slide.bodyFontSize ?? calculateDynamicFontSize(
+  const dynamicBodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? calculateDynamicFontSize(
     slide.body?.length || 0,
     remainingHeight,
     typography.bodySize - 4,  // min
@@ -190,15 +192,17 @@ export async function renderImageTopLayout(
 
   ctx.fillStyle = layout.bodyColor
   ctx.font = `${typography.bodyWeight} ${dynamicBodySize}px ${typography.bodyFont}`
-  ctx.textAlign = layout.bodyArea.align
+  // Usa alinhamento customizado do layout ou o padrão do template
+  const bodyAlign = layoutPositions?.bodyAlign ?? layout.bodyArea.align
+  ctx.textAlign = bodyAlign
 
   const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
   const bodyLineHeight = dynamicBodySize * 1.5
 
   bodyLines.forEach((line, index) => {
-    const x = layout.bodyArea.align === 'center'
+    const x = bodyAlign === 'center'
       ? CANVAS_WIDTH / 2
-      : layout.bodyArea.align === 'right'
+      : bodyAlign === 'right'
         ? CANVAS_WIDTH - bodyX
         : bodyX
 

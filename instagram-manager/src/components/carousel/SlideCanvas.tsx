@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { CarouselSlide, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
+import type { ColorPalette } from '@/templates/palettes'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PREVIEW_SCALE } from '@/types/carousel'
 import { renderSlideWithTemplate } from '@/templates/renderers'
 
@@ -16,6 +17,7 @@ function getProxyImageUrl(url: string | null): string | null {
       url.includes('pixabay.com') ||
       url.includes('supabase.co') ||        // Supabase Storage (avatars)
       url.includes('kie.ai') ||             // Kie.ai image generation CDN
+      url.includes('aiquickdraw.com') ||    // Kie.ai temp file CDN
       url.includes('replicate.delivery')    // Common AI image CDN
   ) {
     return url
@@ -54,6 +56,7 @@ interface SlideCanvasProps {
   template?: CarouselTemplate
   headerTexts?: HeaderTexts
   profileBranding?: ProfileBranding
+  customPalette?: ColorPalette
   isPreview?: boolean
   scale?: number
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
@@ -66,6 +69,7 @@ export function SlideCanvas({
   template,
   headerTexts,
   profileBranding,
+  customPalette,
   isPreview = true,
   scale = PREVIEW_SCALE,
   onCanvasReady,
@@ -114,7 +118,7 @@ export function SlideCanvas({
 
     // Se tiver template, usa o sistema de renderização de templates
     if (template && headerTexts) {
-      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding)
+      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette)
         .then(() => {
           // Calcular bounds dos elementos após renderização
           const bounds = calculateElementBounds(slide, template, headerTexts)
@@ -131,7 +135,8 @@ export function SlideCanvas({
     } else {
       renderDefaultSlide(ctx, slide, brandingText, onCanvasReady ? () => onCanvasReady(canvas) : undefined)
     }
-  }, [slide, brandingText, template, headerTexts, profileBranding, isPreview, scale, onCanvasReady])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slide, brandingText, template, headerTexts, profileBranding, customPalette, isPreview, scale, onCanvasReady])
 
   // Calcula bounds dos elementos arrastáveis
   const calculateElementBounds = useCallback((
@@ -251,13 +256,21 @@ export function SlideCanvas({
     const canvasX = (mouseX - rect.left) * scaleX
     const canvasY = (mouseY - rect.top) * scaleY
 
-    // Verifica cada elemento (do mais em cima para baixo)
-    for (const bound of elementBounds) {
+    // Ordenar por área (menor primeiro) - elementos menores têm prioridade
+    // Isso garante que branding e texto sejam detectados antes de imagem fullscreen
+    const sortedBounds = [...elementBounds].sort((a, b) => {
+      const areaA = a.width * a.height
+      const areaB = b.width * b.height
+      return areaA - areaB
+    })
+
+    // Verifica cada elemento (menor área primeiro para melhor precisão)
+    for (const bound of sortedBounds) {
       if (
         canvasX >= bound.x &&
         canvasX <= bound.x + bound.width &&
-        canvasY >= bound.y - 20 && // Margem extra para facilitar seleção
-        canvasY <= bound.y + bound.height + 20
+        canvasY >= bound.y &&
+        canvasY <= bound.y + bound.height
       ) {
         return bound.element
       }
@@ -270,6 +283,7 @@ export function SlideCanvas({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!onPositionChange || !template) return
 
+    // Detecta elemento sob o mouse
     const element = getElementAtPosition(e.clientX, e.clientY)
     if (!element) return
 
@@ -651,7 +665,8 @@ export async function generateFullResCanvas(
   brandingText: string,
   template?: CarouselTemplate,
   headerTexts?: HeaderTexts,
-  profileBranding?: ProfileBranding
+  profileBranding?: ProfileBranding,
+  customPalette?: ColorPalette
 ): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas')
@@ -666,7 +681,7 @@ export async function generateFullResCanvas(
 
     // Se tiver template, usa o sistema de renderização de templates
     if (template && headerTexts) {
-      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding)
+      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette)
         .then(() => resolve(canvas))
         .catch((error) => {
           console.error('Failed to render slide with template:', error)

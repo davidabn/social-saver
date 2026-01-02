@@ -146,6 +146,78 @@ function extractImageUrls(post: ApifyInstagramPost): string[] | null {
   return uniqueImages.length > 0 ? uniqueImages : null
 }
 
+// Scrape posts from a profile by username
+export async function scrapeInstagramProfilePosts(username: string, limit: number = 5): Promise<Array<{
+  post_id: string
+  platform: string
+  content_type: ContentType
+  thumbnail_url: string | null
+  video_url: string | null
+  image_urls: string[] | null
+  carousel_media: CarouselMedia[] | null
+  caption: string | null
+  likes_count: number
+  comments_count: number
+  posted_at: string | null
+  author_profile_pic: string | null
+  author_name: string | null
+}>> {
+  if (!APIFY_API_KEY) {
+    throw new Error('APIFY_API_KEY is not configured')
+  }
+
+  console.log(`[Apify] Scraping profile: ${username} (limit: ${limit})`)
+
+  try {
+    const response = await axios.post<ApifyInstagramPost[]>(
+      APIFY_API_URL,
+      {
+        usernames: [username],
+        resultsType: 'posts',
+        resultsLimit: limit
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${APIFY_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 120000
+      }
+    )
+
+    const posts = response.data
+
+    if (!posts || posts.length === 0) {
+      console.log(`[Apify] No posts found for profile: ${username}`)
+      return []
+    }
+
+    console.log(`[Apify] Found ${posts.length} posts for ${username}`)
+
+    return posts.map(post => ({
+      post_id: post.shortCode || post.id,
+      platform: 'instagram',
+      content_type: mapContentType(post.type),
+      thumbnail_url: getBestImageUrl(post) || null,
+      video_url: post.videoUrl || null,
+      image_urls: extractImageUrls(post),
+      carousel_media: extractCarouselMedia(post),
+      caption: post.caption || null,
+      likes_count: post.likesCount || 0,
+      comments_count: post.commentsCount || 0,
+      posted_at: post.timestamp || null,
+      author_profile_pic: post.ownerProfilePicUrl || null,
+      author_name: post.ownerFullName || null
+    }))
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error('[Apify] Profile Scrape Error:', error.response?.status, error.response?.data)
+      throw new Error(`Failed to scrape profile: ${error.message}`)
+    }
+    throw error
+  }
+}
+
 export async function scrapeInstagramPost(instagramUrl: string): Promise<ScrapedInstagramData> {
   if (!APIFY_API_KEY) {
     throw new Error('APIFY_API_KEY is not configured')

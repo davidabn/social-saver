@@ -32,6 +32,12 @@ export interface CarouselSlide {
       // Posição do branding card (apenas slide 1)
       brandingX?: number      // Posição X em % (0-100)
       brandingY?: number      // Posição Y em % (0-100)
+      // Controle de alinhamento de texto POR LAYOUT (sobrescreve template)
+      headlineAlign?: 'left' | 'center' | 'right'
+      bodyAlign?: 'left' | 'center' | 'right'
+      // Tamanho de fonte POR LAYOUT (sobrescreve template)
+      headlineFontSize?: number
+      bodyFontSize?: number
     }
   }
 }

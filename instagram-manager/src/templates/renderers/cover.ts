@@ -56,24 +56,23 @@ export async function renderCoverLayout(
   // 4. Desenha header
   drawHeader(ctx, template, headerTexts)
 
-  // 4.5. Desenha branding card (apenas no slide 1)
+  // 4.5. Desenha branding card centralizado (apenas no slide 1)
   if (slide.slideNumber === 1 && profileBranding && (profileBranding.displayName || profileBranding.username)) {
-    // Usa posição customizada se disponível, senão usa default
-    const defaultBrandingX = layout.headlineArea.x
+    // Posição Y: usa customizada ou calcula acima do headline
     const baseHeadlineY = layoutPositions?.headlineY !== undefined
       ? layoutPositions.headlineY
       : layout.headlineArea.y
     const defaultBrandingY = baseHeadlineY - 8  // 8% acima do headline
-
-    const brandingX = percentToPixel(layoutPositions?.brandingX ?? defaultBrandingX, 'width')
     const brandingY = percentToPixel(layoutPositions?.brandingY ?? defaultBrandingY, 'height')
 
+    // X é ignorado pois o branding agora é auto-centralizado
     await drawProfileBranding(
       ctx,
       profileBranding,
-      brandingX,
+      0,  // x ignorado (auto-centralizado)
       brandingY,
-      layout.headlineColor
+      layout.headlineColor,
+      CANVAS_WIDTH  // passa largura do canvas para centralizar
     )
   }
 
@@ -84,8 +83,8 @@ export async function renderCoverLayout(
     : percentToPixel(layout.headlineArea.y, 'height')
   const headlineWidth = percentToPixel(layout.headlineArea.width, 'width')
 
-  // Usa tamanho do slide se definido, senão usa do template
-  const headlineSize = slide.headlineFontSize ?? typography.headlineSize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? typography.headlineSize
 
   ctx.fillStyle = layout.headlineColor
   ctx.font = createFontString(
@@ -94,15 +93,17 @@ export async function renderCoverLayout(
     typography.headlineWeight,
     typography.headlineStyle  // ITALIC
   )
-  ctx.textAlign = layout.headlineArea.align
+  // Usa alinhamento customizado do layout ou o padrão do template
+  const headlineAlign = layoutPositions?.headlineAlign ?? layout.headlineArea.align
+  ctx.textAlign = headlineAlign
 
   const headlineLines = wrapText(ctx, slide.headline, headlineWidth, 20)
   const lineHeight = headlineSize * 1.15
 
   headlineLines.forEach((line, index) => {
-    const x = layout.headlineArea.align === 'center'
+    const x = headlineAlign === 'center'
       ? CANVAS_WIDTH / 2
-      : layout.headlineArea.align === 'right'
+      : headlineAlign === 'right'
         ? CANVAS_WIDTH - headlineX
         : headlineX
 
@@ -131,20 +132,22 @@ export async function renderCoverLayout(
     : headlineEndY + 30  // 30px de margem após headline
   const bodyWidth = percentToPixel(layout.bodyArea.width, 'width')
 
-  // Usa tamanho do slide se definido, senão usa do template
-  const bodySize = slide.bodyFontSize ?? typography.bodySize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
   ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
-  ctx.textAlign = layout.bodyArea.align
+  // Usa alinhamento customizado do layout ou o padrão do template
+  const bodyAlign = layoutPositions?.bodyAlign ?? layout.bodyArea.align
+  ctx.textAlign = bodyAlign
 
   const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
   const bodyLineHeight = bodySize * 1.4
 
   bodyLines.forEach((line, index) => {
-    const x = layout.bodyArea.align === 'center'
+    const x = bodyAlign === 'center'
       ? CANVAS_WIDTH / 2
-      : layout.bodyArea.align === 'right'
+      : bodyAlign === 'right'
         ? CANVAS_WIDTH - bodyX
         : bodyX
 

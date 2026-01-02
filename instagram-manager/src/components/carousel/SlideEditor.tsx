@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Palette, Upload, Loader2, Eye, EyeOff, Wand2 } from 'lucide-react'
+import { Search, Palette, Upload, Loader2, Eye, EyeOff, Wand2, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import type { CarouselSlide } from '@/types/carousel'
 import type { CarouselTemplate, SlideLayoutType } from '@/types/template'
 import { LayoutSelector } from './LayoutSelector'
@@ -294,35 +294,136 @@ export function SlideEditor({
         <span className="text-xs font-medium">Tamanho das Fontes</span>
 
         <div className="space-y-2">
-          <Label htmlFor="headlineFontSize" className="text-xs">
-            Headline: {slide.headlineFontSize || template?.typography.headlineAltSize || 72}px
-          </Label>
-          <input
-            type="range"
-            id="headlineFontSize"
-            min="40"
-            max="100"
-            step="2"
-            value={slide.headlineFontSize || template?.typography.headlineAltSize || 72}
-            onChange={(e) => onUpdate({ headlineFontSize: parseInt(e.target.value) })}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-          />
+          {(() => {
+            const currentLayout = slide.layoutType || 'cover'
+            const layoutHeadlineSize = slide.customPositions?.[currentLayout]?.headlineFontSize
+            const displaySize = layoutHeadlineSize ?? slide.headlineFontSize ?? template?.typography.headlineAltSize ?? 72
+            return (
+              <>
+                <Label htmlFor="headlineFontSize" className="text-xs">
+                  Headline: {displaySize}px
+                </Label>
+                <input
+                  type="range"
+                  id="headlineFontSize"
+                  min="40"
+                  max="100"
+                  step="2"
+                  value={displaySize}
+                  onChange={(e) => onUpdate({
+                    customPositions: {
+                      ...slide.customPositions,
+                      [currentLayout]: {
+                        ...slide.customPositions?.[currentLayout],
+                        headlineFontSize: parseInt(e.target.value)
+                      }
+                    }
+                  })}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+              </>
+            )
+          })()}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="bodyFontSize" className="text-xs">
-            Texto: {slide.bodyFontSize || template?.typography.bodySize || 30}px
-          </Label>
-          <input
-            type="range"
-            id="bodyFontSize"
-            min="18"
-            max="60"
-            step="1"
-            value={slide.bodyFontSize || template?.typography.bodySize || 30}
-            onChange={(e) => onUpdate({ bodyFontSize: parseInt(e.target.value) })}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-          />
+          {(() => {
+            const currentLayout = slide.layoutType || 'cover'
+            const layoutBodySize = slide.customPositions?.[currentLayout]?.bodyFontSize
+            const displaySize = layoutBodySize ?? slide.bodyFontSize ?? template?.typography.bodySize ?? 30
+            return (
+              <>
+                <Label htmlFor="bodyFontSize" className="text-xs">
+                  Texto: {displaySize}px
+                </Label>
+                <input
+                  type="range"
+                  id="bodyFontSize"
+                  min="18"
+                  max="60"
+                  step="1"
+                  value={displaySize}
+                  onChange={(e) => onUpdate({
+                    customPositions: {
+                      ...slide.customPositions,
+                      [currentLayout]: {
+                        ...slide.customPositions?.[currentLayout],
+                        bodyFontSize: parseInt(e.target.value)
+                      }
+                    }
+                  })}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+              </>
+            )
+          })()}
+        </div>
+      </div>
+
+      {/* Text alignment controls */}
+      <div className="space-y-3 pt-2 border-t">
+        <span className="text-xs font-medium">Alinhamento do Texto</span>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Headline</Label>
+          <div className="flex gap-1">
+            {(['left', 'center', 'right'] as const).map((align) => {
+              const currentLayout = slide.layoutType || 'cover'
+              const currentAlign = slide.customPositions?.[currentLayout]?.headlineAlign
+              const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight
+              return (
+                <Button
+                  key={align}
+                  variant={currentAlign === align || (!currentAlign && align === 'left') ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => onUpdate({
+                    customPositions: {
+                      ...slide.customPositions,
+                      [currentLayout]: {
+                        ...slide.customPositions?.[currentLayout],
+                        headlineAlign: align
+                      }
+                    }
+                  })}
+                  className="flex-1 h-8"
+                  title={align === 'left' ? 'Alinhar à esquerda' : align === 'center' ? 'Centralizar' : 'Alinhar à direita'}
+                >
+                  <Icon className="h-4 w-4" />
+                </Button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Texto</Label>
+          <div className="flex gap-1">
+            {(['left', 'center', 'right'] as const).map((align) => {
+              const currentLayout = slide.layoutType || 'cover'
+              const currentAlign = slide.customPositions?.[currentLayout]?.bodyAlign
+              const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight
+              return (
+                <Button
+                  key={align}
+                  variant={currentAlign === align || (!currentAlign && align === 'left') ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => onUpdate({
+                    customPositions: {
+                      ...slide.customPositions,
+                      [currentLayout]: {
+                        ...slide.customPositions?.[currentLayout],
+                        bodyAlign: align
+                      }
+                    }
+                  })}
+                  className="flex-1 h-8"
+                  title={align === 'left' ? 'Alinhar à esquerda' : align === 'center' ? 'Centralizar' : 'Alinhar à direita'}
+                >
+                  <Icon className="h-4 w-4" />
+                </Button>
+              )
+            })}
+          </div>
         </div>
       </div>
 

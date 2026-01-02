@@ -83,6 +83,14 @@ export function useContents(filters: ContentFilters = {}) {
   return useQuery({
     queryKey: ['contents', filters],
     queryFn: () => fetchContents(filters),
+    // Polling a cada 5s se algum conteúdo está processando
+    refetchInterval: (query) => {
+      const data = query.state.data
+      const hasProcessing = data?.data?.some(
+        (item) => item.transcription_status === 'processing'
+      )
+      return hasProcessing ? 5000 : false
+    }
   })
 }
 

@@ -3,17 +3,17 @@ import type { CarouselTemplate, HeaderTexts, SlideLayoutConfig } from '@/types/t
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/types/carousel'
 import {
   drawHeader,
-  drawGradientOverlay,
   drawImageCover,
   wrapText,
   drawTextWithUnderline,
+  drawSeparatorLine,
   loadImage,
   percentToPixel,
   createFontString,
   MOCKUP_IMAGE_URL
 } from './base'
 
-export async function renderTextTopLayout(
+export async function renderImageRightLayout(
   ctx: CanvasRenderingContext2D,
   slide: CarouselSlide,
   template: CarouselTemplate,
@@ -21,16 +21,42 @@ export async function renderTextTopLayout(
   headerTexts: HeaderTexts
 ): Promise<void> {
   const { typography, decorations, header } = template
+  const layoutPositions = slide.customPositions?.['imageRight']
 
-  // 1. Desenha cor de fundo
+  // Calcular dimensões das áreas
+  const textAreaWidth = percentToPixel(100 - (layout.imageArea?.width || 40), 'width')  // 60%
+  const imageX = textAreaWidth
+
+  // 1. Desenha fundo escuro apenas na área de texto (lado esquerdo)
   ctx.fillStyle = layout.backgroundColor
-  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+  ctx.fillRect(0, 0, textAreaWidth, CANVAS_HEIGHT)
 
-  // 2. Desenha header
+  // 2. Desenha imagem no lado direito (40%)
+  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
+  if (imageToUse && layout.imageArea) {
+    try {
+      const img = await loadImage(imageToUse)
+
+      const imgX = percentToPixel(layout.imageArea.x, 'width')
+      const imgY = percentToPixel(layout.imageArea.y, 'height')
+      const imgWidth = percentToPixel(layout.imageArea.width, 'width')
+      const imgHeight = percentToPixel(layout.imageArea.height || 100, 'height')
+
+      drawImageCover(
+        ctx, img, imgX, imgY, imgWidth, imgHeight,
+        layoutPositions?.imageScale ?? 1.0,
+        layoutPositions?.imageOffsetX ?? 0,
+        layoutPositions?.imageOffsetY ?? 0
+      )
+    } catch (error) {
+      console.error('Failed to load image for imageRight layout:', error)
+    }
+  }
+
+  // 3. Desenha header (opcional)
   drawHeader(ctx, template, headerTexts)
 
-  // 3. Desenha headline no topo
-  const layoutPositions = slide.customPositions?.['textTop']
+  // 4. Desenha headline no lado esquerdo (topo)
   const headlineX = percentToPixel(layout.headlineArea.x, 'width')
   const headlineY = layoutPositions?.headlineY !== undefined
     ? percentToPixel(layoutPositions.headlineY, 'height')
@@ -45,9 +71,8 @@ export async function renderTextTopLayout(
     headlineSize,
     typography.headlineFont,
     typography.headlineWeight,
-    typography.headlineStyle  // ITALIC
+    typography.headlineStyle
   )
-  // Usa alinhamento customizado do layout ou o padrão do template
   const headlineAlign = layoutPositions?.headlineAlign ?? layout.headlineArea.align
   ctx.textAlign = headlineAlign
 
@@ -56,9 +81,9 @@ export async function renderTextTopLayout(
 
   headlineLines.forEach((line, index) => {
     const x = headlineAlign === 'center'
-      ? CANVAS_WIDTH / 2
+      ? textAreaWidth / 2
       : headlineAlign === 'right'
-        ? CANVAS_WIDTH - headlineX
+        ? textAreaWidth - headlineX
         : headlineX
 
     if (decorations.underlineHeadline && slide.highlightWords?.length) {
@@ -76,34 +101,14 @@ export async function renderTextTopLayout(
     }
   })
 
-  // 4. Desenha imagem abaixo do headline
-  // Usa mockup se não tiver imagem e showMockup !== false
-  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
-  if (imageToUse && layout.imageArea) {
-    try {
-      const img = await loadImage(imageToUse)
-      const imgY = percentToPixel(layout.imageArea.y, 'height')
-      const imgHeight = percentToPixel(layout.imageArea.height || 65, 'height')
+  // Calcular onde o headline termina
+  const headlineEndY = headlineY + (headlineLines.length * lineHeight)
 
-      drawImageCover(
-        ctx, img, 0, imgY, CANVAS_WIDTH, imgHeight,
-        layoutPositions?.imageScale ?? 1.0,
-        layoutPositions?.imageOffsetX ?? 0,
-        layoutPositions?.imageOffsetY ?? 0
-      )
-
-      // Desenha gradient sobre a imagem para legibilidade do texto
-      drawGradientOverlay(ctx, layout.gradientOverlay, imgY, CANVAS_HEIGHT)
-    } catch (error) {
-      console.error('Failed to load image for textTop layout:', error)
-    }
-  }
-
-  // 5. Desenha body sobre a imagem
+  // 5. Desenha body no lado esquerdo (abaixo headline)
   const bodyX = percentToPixel(layout.bodyArea.x, 'width')
   const bodyY = layoutPositions?.bodyY !== undefined
     ? percentToPixel(layoutPositions.bodyY, 'height')
-    : percentToPixel(layout.bodyArea.y, 'height')
+    : headlineEndY + 30
   const bodyWidth = percentToPixel(layout.bodyArea.width, 'width')
 
   // Usa tamanho do layout se definido, depois do slide, senão usa do template
@@ -111,7 +116,6 @@ export async function renderTextTopLayout(
 
   ctx.fillStyle = layout.bodyColor
   ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
-  // Usa alinhamento customizado do layout ou o padrão do template
   const bodyAlign = layoutPositions?.bodyAlign ?? layout.bodyArea.align
   ctx.textAlign = bodyAlign
 
@@ -120,11 +124,25 @@ export async function renderTextTopLayout(
 
   bodyLines.forEach((line, index) => {
     const x = bodyAlign === 'center'
-      ? CANVAS_WIDTH / 2
+      ? textAreaWidth / 2
       : bodyAlign === 'right'
-        ? CANVAS_WIDTH - bodyX
+        ? textAreaWidth - bodyX
         : bodyX
 
     ctx.fillText(line, x, bodyY + (index * bodyLineHeight))
   })
+
+  // 6. Desenha linha separadora (opcional) - abaixo do body
+  if (decorations.separatorLine) {
+    const bodyEndY = bodyY + (bodyLines.length * bodyLineHeight)
+    const separatorY = bodyEndY + 30
+    drawSeparatorLine(
+      ctx,
+      separatorY,
+      decorations.separatorColor,
+      decorations.separatorThickness,
+      headlineX,
+      headlineX + 100
+    )
+  }
 }

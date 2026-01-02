@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useContent } from '@/hooks/useContent'
+import { useGenerateContent } from '@/hooks/useAI'
 import {
   Heart,
   MessageCircle,
@@ -22,7 +23,8 @@ import {
   AlertCircle,
   Download,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
@@ -58,15 +60,40 @@ function formatNumber(num: number | null | undefined): string {
 
 export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDetailModalProps) {
   const { data: content, isLoading, error } = useContent(contentId)
+  const generateContent = useGenerateContent()
   const [copied, setCopied] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [generatedScript, setGeneratedScript] = useState<string | null>(null)
+  const [scriptType, setScriptType] = useState<'post' | 'reel' | 'carousel'>('reel')
+  const [scriptCopied, setScriptCopied] = useState(false)
 
   const handleCopyTranscription = async () => {
     if (content?.transcription?.text) {
       await navigator.clipboard.writeText(content.transcription.text)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleGenerateScript = async () => {
+    if (!content?.id) return
+    try {
+      const result = await generateContent.mutateAsync({
+        contentId: content.id,
+        type: scriptType
+      })
+      setGeneratedScript(result.content)
+    } catch (error) {
+      console.error('Failed to generate script:', error)
+    }
+  }
+
+  const handleCopyScript = async () => {
+    if (generatedScript) {
+      await navigator.clipboard.writeText(generatedScript)
+      setScriptCopied(true)
+      setTimeout(() => setScriptCopied(false), 2000)
     }
   }
 
@@ -171,7 +198,10 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
 
   return (
     <Dialog open={open} onOpenChange={(val) => {
-      if (!val) setCurrentImageIndex(0)
+      if (!val) {
+        setCurrentImageIndex(0)
+        setGeneratedScript(null)
+      }
       onOpenChange(val)
     }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -369,6 +399,99 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Script Generation */}
+                <div className="flex flex-col gap-2 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      Gerar Roteiro
+                    </h3>
+                  </div>
+
+                  {/* Type Selector */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant={scriptType === 'post' ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => setScriptType('post')}
+                      className="flex-1"
+                    >
+                      Post
+                    </Button>
+                    <Button
+                      variant={scriptType === 'reel' ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => setScriptType('reel')}
+                      className="flex-1"
+                    >
+                      Reel
+                    </Button>
+                    <Button
+                      variant={scriptType === 'carousel' ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => setScriptType('carousel')}
+                      className="flex-1"
+                    >
+                      Carrossel
+                    </Button>
+                  </div>
+
+                  {/* Generate Button */}
+                  <Button
+                    onClick={handleGenerateScript}
+                    disabled={generateContent.isPending}
+                    className="w-full gap-2"
+                  >
+                    {generateContent.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Gerar Roteiro de {scriptType === 'post' ? 'Post' : scriptType === 'reel' ? 'Reel' : 'Carrossel'}
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Generated Script Display */}
+                  {generatedScript && (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Roteiro Gerado</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopyScript}
+                          className="gap-2"
+                        >
+                          {scriptCopied ? (
+                            <>
+                              <Check className="h-4 w-4 text-green-500" />
+                              Copiado!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4" />
+                              Copiar
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                        <p className="text-sm whitespace-pre-wrap">{generatedScript}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {generateContent.isError && (
+                    <p className="text-sm text-destructive">
+                      Erro ao gerar roteiro. Verifique se sua persona esta configurada.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

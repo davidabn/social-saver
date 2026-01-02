@@ -31,6 +31,14 @@ export function useContent(contentId: string | null) {
   return useQuery({
     queryKey: ['content', contentId],
     queryFn: () => fetchContentById(contentId!),
-    enabled: !!contentId
+    enabled: !!contentId,
+    // Polling a cada 3s enquanto transcrição está processando
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (data?.transcription_status === 'processing') {
+        return 3000  // 3 segundos
+      }
+      return false  // Para de fazer polling
+    }
   })
 }

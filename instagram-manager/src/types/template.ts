@@ -6,6 +6,9 @@ export type SlideLayoutType =
   | 'fullImage'      // Slides 5,10: imagem fullscreen + texto central
   | 'textOnly'       // Slide 8: apenas texto
   | 'textImageText'  // Texto topo + imagem meio + texto embaixo
+  | 'imageBottom'    // Texto topo + imagem embaixo
+  | 'imageLeft'      // Imagem esquerda (40%) + texto direita (60%)
+  | 'imageRight'     // Texto esquerda (60%) + imagem direita (40%)
 
 // Paleta de cores do template
 export interface TemplateColorPalette {

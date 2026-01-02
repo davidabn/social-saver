@@ -261,12 +261,16 @@ async function createBrandingGroup(
   }
 }
 
+// Type for layout-specific positions
+type LayoutPositions = NonNullable<CarouselSlide['customPositions']>[string]
+
 // Create headline text layer
 function createHeadlineLayer(
   slide: CarouselSlide,
   layout: SlideLayoutConfig,
   template: CarouselTemplate,
-  customY?: number
+  customY?: number,
+  layoutPositions?: LayoutPositions
 ): Layer {
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_WIDTH
@@ -279,7 +283,8 @@ function createHeadlineLayer(
     : percentToPixel(layout.headlineArea.y, 'height')
   const headlineWidth = percentToPixel(layout.headlineArea.width, 'width')
 
-  const headlineSize = slide.headlineFontSize ?? template.typography.headlineSize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template.typography.headlineSize
 
   ctx.fillStyle = layout.headlineColor
   ctx.font = createFontString(
@@ -316,7 +321,8 @@ function createBodyLayer(
   layout: SlideLayoutConfig,
   template: CarouselTemplate,
   headlineEndY: number,
-  customY?: number
+  customY?: number,
+  layoutPositions?: LayoutPositions
 ): Layer {
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_WIDTH
@@ -329,7 +335,8 @@ function createBodyLayer(
     : headlineEndY + 30
   const bodyWidth = percentToPixel(layout.bodyArea.width, 'width')
 
-  const bodySize = slide.bodyFontSize ?? template.typography.bodySize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? template.typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
   ctx.font = `${template.typography.bodyWeight} ${bodySize}px ${template.typography.bodyFont}`
@@ -418,12 +425,14 @@ export async function createPsdFromSlide(
     slide,
     layout,
     template,
-    layoutPositions?.headlineY
+    layoutPositions?.headlineY,
+    layoutPositions
   )
   layers.push(headlineLayer)
 
   // Calculate headline end Y for body positioning
-  const headlineSize = slide.headlineFontSize ?? template.typography.headlineSize
+  // Usa tamanho do layout se definido, depois do slide, senão usa do template
+  const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template.typography.headlineSize
   const headlineY = layoutPositions?.headlineY !== undefined
     ? percentToPixel(layoutPositions.headlineY, 'height')
     : percentToPixel(layout.headlineArea.y, 'height')
@@ -448,7 +457,8 @@ export async function createPsdFromSlide(
     layout,
     template,
     headlineEndY,
-    layoutPositions?.bodyY
+    layoutPositions?.bodyY,
+    layoutPositions
   )
   layers.push(bodyLayer)
 
@@ -764,7 +774,8 @@ export async function exportSlidesAsPdfEditable(
       ? percentToPixel(layoutPositions.headlineY, 'height')
       : percentToPixel(layout.headlineArea.y, 'height'))
 
-    const headlineSize = slide.headlineFontSize ?? template.typography.headlineSize
+    // Usa tamanho do layout se definido, depois do slide, senão usa do template
+    const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template.typography.headlineSize
     const headlineColor = hexToRgbValues(layout.headlineColor)
 
     pdf.setTextColor(headlineColor.r, headlineColor.g, headlineColor.b)
@@ -796,7 +807,8 @@ export async function exportSlidesAsPdfEditable(
       ? pxToMm(percentToPixel(layoutPositions.bodyY, 'height'))
       : headlineY + (headlineLines.length * headlineLineHeight) + pxToMm(30)
 
-    const bodySize = slide.bodyFontSize ?? template.typography.bodySize
+    // Usa tamanho do layout se definido, depois do slide, senão usa do template
+    const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? template.typography.bodySize
     const bodyColor = hexToRgbValues(layout.bodyColor)
 
     pdf.setTextColor(bodyColor.r, bodyColor.g, bodyColor.b)

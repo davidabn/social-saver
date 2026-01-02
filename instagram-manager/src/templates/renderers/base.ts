@@ -356,88 +356,97 @@ export function calculateDynamicFontSize(
   return baseSize
 }
 
-// Desenha branding card do perfil (foto, nome, @username)
+// Desenha branding card do perfil com linhas horizontais (estilo Instagram)
+// Layout: ─────── [Avatar] Nome ✓ ───────
+//                        @username
 export async function drawProfileBranding(
   ctx: CanvasRenderingContext2D,
   branding: ProfileBranding,
   x: number,
   y: number,
-  textColor: string = '#FFFFFF'
+  textColor: string = '#FFFFFF',
+  canvasWidth: number = 1080
 ): Promise<{ height: number }> {
-  const avatarSize = 56
-  const avatarX = x
-  const avatarY = y
-  const textX = avatarX + avatarSize + 16
-  const nameY = avatarY + 20
-  const usernameY = nameY + 26
+  const avatarSize = 48
+  const lineWidth = 80  // Largura das linhas horizontais
+  const lineGap = 16    // Espaço entre linha e avatar
+  const spacing = 12    // Espaço entre avatar e texto
 
   ctx.save()
 
-  // 1. Desenhar foto de perfil circular (como Instagram - crop centralizado)
+  // Calcular largura do nome + checkmark
+  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  const nameText = branding.displayName || 'Seu Nome'
+  const nameWidth = ctx.measureText(nameText).width
+  const checkmarkWidth = branding.isVerified ? 28 : 0  // 20px círculo + 8px gap
+
+  // Largura total do conteúdo central: linha + gap + avatar + gap + nome + checkmark + gap + linha
+  const contentWidth = lineWidth + lineGap + avatarSize + spacing + nameWidth + checkmarkWidth + lineGap + lineWidth
+
+  // Posição X centralizada
+  const startX = (canvasWidth - contentWidth) / 2
+  const centerY = y + avatarSize / 2
+
+  // 1. Linha horizontal esquerda
+  ctx.strokeStyle = hexToRgba(textColor, 0.4)
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(startX, centerY)
+  ctx.lineTo(startX + lineWidth, centerY)
+  ctx.stroke()
+
+  // 2. Avatar circular
+  const avatarX = startX + lineWidth + lineGap
+  const avatarY = y
+
   if (branding.avatarUrl) {
     try {
       const avatarImg = await loadImage(branding.avatarUrl)
 
-      // Criar clipping circular
       ctx.beginPath()
       ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
       ctx.closePath()
+      ctx.save()
       ctx.clip()
 
-      // Calcular crop centralizado mantendo aspect ratio (como Instagram)
       const imgWidth = avatarImg.naturalWidth || avatarImg.width
       const imgHeight = avatarImg.naturalHeight || avatarImg.height
       const minDim = Math.min(imgWidth, imgHeight)
-
-      // Source: quadrado centralizado da imagem original
       const sx = (imgWidth - minDim) / 2
       const sy = (imgHeight - minDim) / 2
 
-      // Desenhar com crop centralizado
-      ctx.drawImage(
-        avatarImg,
-        sx, sy, minDim, minDim,  // source (crop quadrado centralizado)
-        avatarX, avatarY, avatarSize, avatarSize  // destination
-      )
-
-      // Resetar clip
+      ctx.drawImage(avatarImg, sx, sy, minDim, minDim, avatarX, avatarY, avatarSize, avatarSize)
       ctx.restore()
-      ctx.save()
     } catch (e) {
-      // Fallback: círculo cinza se imagem não carregar
-      console.error('Failed to load avatar:', branding.avatarUrl, e)
+      console.error('Failed to load avatar:', e)
       ctx.fillStyle = '#666666'
       ctx.beginPath()
       ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
       ctx.fill()
     }
   } else {
-    // Sem avatar: desenhar círculo placeholder
     ctx.fillStyle = '#666666'
     ctx.beginPath()
     ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
     ctx.fill()
   }
 
-  // 2. Desenhar nome + verificado
+  // 3. Nome + Checkmark (à direita do avatar)
+  const textX = avatarX + avatarSize + spacing
   ctx.fillStyle = textColor
-  ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
+  ctx.fillText(nameText, textX, centerY - 8)
 
-  const nameText = branding.displayName || 'Seu Nome'
-  ctx.fillText(nameText, textX, nameY)
-
-  // Checkmark verificado
   if (branding.isVerified) {
-    const nameWidth = ctx.measureText(nameText).width
-    const checkmarkX = textX + nameWidth + 16  // Espaçamento adequado
-    const checkmarkY = nameY
+    const checkX = textX + nameWidth + 16
+    const checkY = centerY - 8
 
     // Círculo azul
     ctx.fillStyle = '#1DA1F2'
     ctx.beginPath()
-    ctx.arc(checkmarkX, checkmarkY, 10, 0, Math.PI * 2)
+    ctx.arc(checkX, checkY, 9, 0, Math.PI * 2)
     ctx.fill()
 
     // Checkmark branco
@@ -446,20 +455,28 @@ export async function drawProfileBranding(
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()
-    ctx.moveTo(checkmarkX - 4, checkmarkY)
-    ctx.lineTo(checkmarkX - 1, checkmarkY + 3)
-    ctx.lineTo(checkmarkX + 5, checkmarkY - 3)
+    ctx.moveTo(checkX - 4, checkY)
+    ctx.lineTo(checkX - 1, checkY + 3)
+    ctx.lineTo(checkX + 4, checkY - 3)
     ctx.stroke()
   }
 
-  // 3. Desenhar @username
-  ctx.fillStyle = hexToRgba(textColor, 0.7)
-  ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  // 4. @username (abaixo do nome, alinhado)
+  ctx.fillStyle = hexToRgba(textColor, 0.6)
+  ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   const usernameText = branding.username ? `@${branding.username}` : '@username'
-  ctx.fillText(usernameText, textX, usernameY)
+  ctx.fillText(usernameText, textX, centerY + 14)
+
+  // 5. Linha horizontal direita
+  const rightLineX = textX + nameWidth + checkmarkWidth + lineGap
+  ctx.strokeStyle = hexToRgba(textColor, 0.4)
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(rightLineX, centerY)
+  ctx.lineTo(rightLineX + lineWidth, centerY)
+  ctx.stroke()
 
   ctx.restore()
 
-  // Retorna altura total do branding card
-  return { height: avatarSize + 10 }
+  return { height: avatarSize + 20 }
 }
