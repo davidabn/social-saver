@@ -4,6 +4,11 @@ import { Login } from '@/pages/Login'
 import { Signup } from '@/pages/Signup'
 import { Dashboard } from '@/pages/Dashboard'
 import { Settings } from '@/pages/Settings'
+import { Persona } from '@/pages/Persona'
+import { Collections } from '@/pages/Collections'
+import { CollectionDetail } from '@/pages/CollectionDetail'
+import { Feed } from '@/pages/Feed'
+import CarouselDesigner from '@/pages/CarouselDesigner'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
 const queryClient = new QueryClient({
@@ -35,6 +40,46 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/persona"
+            element={
+              <ProtectedRoute>
+                <Persona />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/collections"
+            element={
+              <ProtectedRoute>
+                <Collections />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/collections/:id"
+            element={
+              <ProtectedRoute>
+                <CollectionDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/feed"
+            element={
+              <ProtectedRoute>
+                <Feed />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/carousel/:contentId?"
+            element={
+              <ProtectedRoute>
+                <CarouselDesigner />
               </ProtectedRoute>
             }
           />

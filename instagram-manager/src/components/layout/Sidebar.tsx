@@ -1,5 +1,5 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { Bookmark, Image, Video, Grid, Tag, Clock, Settings, Layers } from 'lucide-react'
+import { Bookmark, Image, Video, Grid, Tag, Clock, Settings, Layers, User, Rss, PenTool } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const filterItems = [
@@ -14,6 +14,10 @@ const filterItems = [
 
 const navItems = [
   { icon: <Grid className="h-4 w-4" />, label: 'Dashboard', path: '/dashboard' },
+  { icon: <PenTool className="h-4 w-4" />, label: 'Design Carousel', path: '/carousel' },
+  { icon: <Bookmark className="h-4 w-4" />, label: 'Colecoes', path: '/collections' },
+  { icon: <Rss className="h-4 w-4" />, label: 'Feed', path: '/feed' },
+  { icon: <User className="h-4 w-4" />, label: 'Persona', path: '/persona' },
   { icon: <Settings className="h-4 w-4" />, label: 'Configuracoes', path: '/settings' },
 ]
 
