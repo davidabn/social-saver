@@ -52,7 +52,7 @@ export class KieService {
         model: 'flux-2/pro-text-to-image',
         input: {
           prompt: prompt,
-          aspect_ratio: '4:5',  // Instagram vertical format
+          aspect_ratio: '1:1',  // Square format (API supported)
           resolution: '1K'
         }
       })
