@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,7 +17,7 @@ import { SlideEditor } from '@/components/carousel/SlideEditor'
 import { ImageSearchModal } from '@/components/carousel/ImageSearchModal'
 import { TemplateSelector } from '@/components/carousel/TemplateSelector'
 import { ScriptImportModal } from '@/components/carousel/ScriptImportModal'
-import { useGenerateSlidesWithImages, useSearchImages } from '@/hooks/useCarouselDesigner'
+import { useGenerateSlidesWithImages, useSearchImages, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
 import type { CarouselSlide, CarouselDesign } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
@@ -66,6 +66,9 @@ export default function CarouselDesigner() {
   // AI generation
   const generateSlidesWithImages = useGenerateSlidesWithImages()
   const searchImages = useSearchImages()
+  const generateImagePrompts = useGenerateImagePrompts()
+  const generateAIImages = useGenerateAIImages()
+  const [isGeneratingAIImages, setIsGeneratingAIImages] = useState(false)
 
   const selectedSlide = design.slides.find(s => s.id === selectedSlideId) || design.slides[0]
 
@@ -184,6 +187,53 @@ export default function CarouselDesigner() {
       }
     } catch (error) {
       console.error('Failed to generate slides:', error)
+    }
+  }
+
+  // Generate AI images for all slides
+  const handleGenerateAIImages = async () => {
+    if (design.slides.length === 0) return
+
+    setIsGeneratingAIImages(true)
+
+    try {
+      // Step 1: Generate prompts for all slides
+      const slidesForPrompts = design.slides.map(s => ({
+        headline: s.headline,
+        body: s.body
+      }))
+
+      const prompts = await generateImagePrompts.mutateAsync({
+        slides: slidesForPrompts,
+        theme: topic || design.theme || 'professional carousel'
+      })
+
+      // Step 2: Generate images from prompts
+      const result = await generateAIImages.mutateAsync({
+        prompts: prompts
+      })
+
+      // Step 3: Update slides with generated images
+      if (result.images.length > 0) {
+        setDesign(prev => ({
+          ...prev,
+          slides: prev.slides.map((slide, index) => {
+            const generatedImage = result.images.find(img => img.slideIndex === index)
+            if (generatedImage) {
+              return { ...slide, imageUrl: generatedImage.imageUrl }
+            }
+            return slide
+          })
+        }))
+      }
+
+      if (result.errorCount > 0) {
+        console.warn(`${result.errorCount} images failed to generate`)
+      }
+    } catch (error) {
+      console.error('Failed to generate AI images:', error)
+    } finally {
+      setIsGeneratingAIImages(false)
     }
   }
 
@@ -377,6 +427,22 @@ export default function CarouselDesigner() {
 
         <Button
           variant="outline"
+          onClick={handleGenerateAIImages}
+          disabled={isGeneratingAIImages || design.slides.length === 0}
+          title="Gera imagens com IA para todos os slides"
+        >
+          {isGeneratingAIImages ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4 mr-2" />
+          )}
+          {isGeneratingAIImages ? 'Gerando...' : 'Gerar Imagens IA'}
+        </Button>
+
+        <div className="h-6 w-px bg-border" />
+
+        <Button
+          variant="outline"
           onClick={() => setShowScriptImport(true)}
         >
           <FileText className="h-4 w-4 mr-2" />
@@ -429,6 +495,7 @@ export default function CarouselDesigner() {
               onSearchImages={handleSearchImages}
               isSearching={searchImages.isPending}
               template={selectedTemplate || undefined}
+              theme={topic || design.theme}
             />
           ) : (
             <div className="p-4 text-center text-muted-foreground">

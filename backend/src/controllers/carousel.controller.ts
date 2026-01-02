@@ -4,6 +4,7 @@ import type { AuthenticatedRequest, Persona } from '../types/index.js'
 import { supabaseAdmin } from '../lib/supabase.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { perplexityService } from '../services/perplexity.service.js'
+import { kieService } from '../services/kie.service.js'
 import OpenAI from 'openai'
 
 // Schemas
@@ -27,6 +28,21 @@ const searchImagesForSlideSchema = z.object({
 const parseScriptSchema = z.object({
   script: z.string().min(1),
   slideCount: z.number().int().min(1).max(20).optional()
+})
+
+const generateImagePromptsSchema = z.object({
+  slides: z.array(z.object({
+    headline: z.string(),
+    body: z.string()
+  })),
+  theme: z.string().min(1)
+})
+
+const generateAIImagesSchema = z.object({
+  prompts: z.array(z.object({
+    slideIndex: z.number().int().min(0),
+    prompt: z.string().min(1)
+  }))
 })
 
 // Initialize OpenAI
@@ -469,6 +485,146 @@ export async function uploadImage(
     console.log(`[Carousel] Image uploaded successfully: ${urlData.publicUrl}`)
 
     res.json({ url: urlData.publicUrl })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// POST /api/carousel/generate-image-prompts
+// Uses GPT-4o to create image generation prompts based on slide content
+export async function generateImagePrompts(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    if (!openai) throw new AppError('OpenAI API key not configured', 500)
+
+    const { slides, theme } = generateImagePromptsSchema.parse(req.body)
+
+    console.log(`[Carousel] Generating image prompts for ${slides.length} slides, theme: "${theme}"`)
+
+    const systemPrompt = `You are an expert at creating prompts for AI image generation (Flux 2 Pro).
+Your task is to create visually compelling prompts in English for each carousel slide.
+
+Guidelines for prompts:
+- Capture the essence and emotion of the slide content
+- Be visually impactful and professional
+- Be coherent with the overall carousel theme
+- Use photography/art terminology (lighting, composition, style, mood)
+- DO NOT include any text or typography in the image
+- Prefer realistic photography or clean minimalist illustrations
+- Keep prompts between 50-150 words
+- Include specific details about colors, lighting, and atmosphere
+- Make each image unique but cohesive with the series`
+
+    const slidesDescription = slides.map((slide, index) =>
+      `Slide ${index + 1}:\n- Headline: "${slide.headline}"\n- Body: "${slide.body}"`
+    ).join('\n\n')
+
+    const userPrompt = `Theme of the carousel: "${theme}"
+
+${slidesDescription}
+
+Create an image generation prompt for each slide. The images should:
+1. Work together as a cohesive visual series
+2. Reinforce the message of each slide
+3. Be suitable for Instagram carousel (4:5 vertical format)
+4. NOT contain any text, words, or typography
+
+Return ONLY a JSON array with the prompts:
+[
+  { "slideIndex": 0, "prompt": "detailed image prompt here..." },
+  { "slideIndex": 1, "prompt": "detailed image prompt here..." }
+]
+
+Return ONLY the JSON array, no other text.`
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 3000
+    })
+
+    const content = response.choices[0]?.message?.content || '[]'
+
+    try {
+      let cleanContent = content.trim()
+      if (cleanContent.startsWith('```json')) {
+        cleanContent = cleanContent.slice(7)
+      } else if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent.slice(3)
+      }
+      if (cleanContent.endsWith('```')) {
+        cleanContent = cleanContent.slice(0, -3)
+      }
+      cleanContent = cleanContent.trim()
+
+      const prompts = JSON.parse(cleanContent)
+
+      console.log(`[Carousel] Generated ${prompts.length} image prompts`)
+
+      res.json({ prompts })
+    } catch (parseError) {
+      console.error('[Carousel] Failed to parse prompts:', content)
+      throw new AppError('Failed to generate image prompts', 500)
+    }
+  } catch (error) {
+    next(error)
+  }
+}
+
+// POST /api/carousel/generate-ai-images
+// Sends prompts to Kie.ai Flux 2 Pro and returns generated image URLs
+export async function generateAIImages(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    const { prompts } = generateAIImagesSchema.parse(req.body)
+
+    console.log(`[Carousel] Generating ${prompts.length} AI images via Kie.ai...`)
+
+    // Generate all images in parallel
+    const imagePromises = prompts.map(async ({ slideIndex, prompt }) => {
+      try {
+        console.log(`[Carousel] Generating image for slide ${slideIndex}...`)
+        const imageUrl = await kieService.generateImage(prompt)
+        return { slideIndex, imageUrl, error: null }
+      } catch (error) {
+        console.error(`[Carousel] Failed to generate image for slide ${slideIndex}:`, error)
+        return { slideIndex, imageUrl: null, error: (error as Error).message }
+      }
+    })
+
+    const results = await Promise.all(imagePromises)
+
+    // Build response
+    const images = results
+      .filter(r => r.imageUrl !== null)
+      .map(r => ({ slideIndex: r.slideIndex, imageUrl: r.imageUrl as string }))
+
+    const errors = results
+      .filter(r => r.error !== null)
+      .map(r => ({ slideIndex: r.slideIndex, error: r.error as string }))
+
+    const successCount = images.length
+    const errorCount = errors.length
+
+    console.log(`[Carousel] AI image generation complete: ${successCount} success, ${errorCount} failed`)
+
+    res.json({ images, errors, successCount, errorCount })
   } catch (error) {
     next(error)
   }

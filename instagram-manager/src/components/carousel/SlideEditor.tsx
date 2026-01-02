@@ -1,12 +1,12 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Palette, Upload, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Search, Palette, Upload, Loader2, Eye, EyeOff, Wand2 } from 'lucide-react'
 import type { CarouselSlide } from '@/types/carousel'
 import type { CarouselTemplate, SlideLayoutType } from '@/types/template'
 import { LayoutSelector } from './LayoutSelector'
-import { useUploadImage } from '@/hooks/useCarouselDesigner'
+import { useUploadImage, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
 
 interface SlideEditorProps {
   slide: CarouselSlide
@@ -14,6 +14,7 @@ interface SlideEditorProps {
   onSearchImages: () => void
   isSearching?: boolean
   template?: CarouselTemplate
+  theme?: string  // Tema do carrossel para gerar imagens
 }
 
 export function SlideEditor({
@@ -21,10 +22,47 @@ export function SlideEditor({
   onUpdate,
   onSearchImages,
   isSearching = false,
-  template
+  template,
+  theme = ''
 }: SlideEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadImage = useUploadImage()
+  const generateImagePrompts = useGenerateImagePrompts()
+  const generateAIImages = useGenerateAIImages()
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
+
+  const handleGenerateAIImage = async () => {
+    if (!slide.headline && !slide.body) return
+
+    setIsGeneratingImage(true)
+
+    try {
+      // Generate prompt for this slide
+      const prompts = await generateImagePrompts.mutateAsync({
+        slides: [{ headline: slide.headline, body: slide.body }],
+        theme: theme || 'professional content'
+      })
+
+      if (prompts.length === 0) {
+        throw new Error('No prompt generated')
+      }
+
+      // Generate image from prompt
+      const result = await generateAIImages.mutateAsync({
+        prompts: [{ slideIndex: 0, prompt: prompts[0].prompt }]
+      })
+
+      if (result.images.length > 0) {
+        onUpdate({ imageUrl: result.images[0].imageUrl })
+      } else if (result.errors.length > 0) {
+        console.error('AI image generation failed:', result.errors[0].error)
+      }
+    } catch (error) {
+      console.error('Failed to generate AI image:', error)
+    } finally {
+      setIsGeneratingImage(false)
+    }
+  }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -116,7 +154,23 @@ export function SlideEditor({
           >
             <Search className="h-4 w-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleGenerateAIImage}
+            disabled={isGeneratingImage || (!slide.headline && !slide.body)}
+            title="Gerar imagem com IA"
+          >
+            {isGeneratingImage ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="h-4 w-4" />
+            )}
+          </Button>
         </div>
+        {isGeneratingImage && (
+          <p className="text-xs text-muted-foreground">Gerando imagem com IA...</p>
+        )}
         {uploadImage.isPending && (
           <p className="text-xs text-muted-foreground">Fazendo upload...</p>
         )}

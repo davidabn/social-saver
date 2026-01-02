@@ -6,7 +6,9 @@ import {
   searchImagesForSlide,
   generateSlidesWithImages,
   parseScriptWithAI,
-  uploadImage
+  uploadImage,
+  generateImagePrompts,
+  generateAIImages
 } from '../controllers/carousel.controller.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 
@@ -47,5 +49,11 @@ router.post('/parse-script', parseScriptWithAI)
 
 // POST /api/carousel/upload-image - Upload image to Supabase Storage
 router.post('/upload-image', upload.single('image'), uploadImage)
+
+// POST /api/carousel/generate-image-prompts - Generate prompts for AI images
+router.post('/generate-image-prompts', generateImagePrompts)
+
+// POST /api/carousel/generate-ai-images - Generate images via Kie.ai Flux 2 Pro
+router.post('/generate-ai-images', generateAIImages)
 
 export default router

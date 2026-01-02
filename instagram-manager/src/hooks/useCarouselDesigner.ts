@@ -150,6 +150,67 @@ async function parseScriptWithAI(input: ParseScriptInput): Promise<ParsedSlideFr
   return data.slides
 }
 
+// Generate image prompts with GPT-4o
+interface GenerateImagePromptsInput {
+  slides: { headline: string; body: string }[]
+  theme: string
+}
+
+interface ImagePrompt {
+  slideIndex: number
+  prompt: string
+}
+
+async function generateImagePrompts(input: GenerateImagePromptsInput): Promise<ImagePrompt[]> {
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${API_URL}/carousel/generate-image-prompts`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(input)
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to generate image prompts')
+  }
+
+  const data: { prompts: ImagePrompt[] } = await response.json()
+  return data.prompts
+}
+
+// Generate AI images via Kie.ai Flux 2 Pro
+interface GenerateAIImagesInput {
+  prompts: { slideIndex: number; prompt: string }[]
+}
+
+interface GeneratedImage {
+  slideIndex: number
+  imageUrl: string
+}
+
+interface GenerateAIImagesResponse {
+  images: GeneratedImage[]
+  errors: { slideIndex: number; error: string }[]
+  successCount: number
+  errorCount: number
+}
+
+async function generateAIImages(input: GenerateAIImagesInput): Promise<GenerateAIImagesResponse> {
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${API_URL}/carousel/generate-ai-images`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(input)
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to generate AI images')
+  }
+
+  return response.json()
+}
+
 // Upload image to Supabase Storage
 async function uploadImage(file: File): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -212,5 +273,17 @@ export function useParseScriptWithAI() {
 export function useUploadImage() {
   return useMutation({
     mutationFn: uploadImage
+  })
+}
+
+export function useGenerateImagePrompts() {
+  return useMutation({
+    mutationFn: generateImagePrompts
+  })
+}
+
+export function useGenerateAIImages() {
+  return useMutation({
+    mutationFn: generateAIImages
   })
 }
