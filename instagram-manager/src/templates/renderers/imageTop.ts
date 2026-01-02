@@ -11,7 +11,8 @@ import {
   percentToPixel,
   createFontString,
   createCondensedFontString,
-  calculateDynamicFontSize
+  calculateDynamicFontSize,
+  MOCKUP_IMAGE_URL
 } from './base'
 
 export async function renderImageTopLayout(
@@ -67,9 +68,11 @@ export async function renderImageTopLayout(
   drawHeader(ctx, template, headerTexts)
 
   // 2.3 Imagem (assíncrono, mas posição já foi calculada)
-  if (slide.imageUrl && layout.imageArea) {
+  // Usa mockup se não tiver imagem e showMockup !== false
+  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
+  if (imageToUse && layout.imageArea) {
     try {
-      const img = await loadImage(slide.imageUrl)
+      const img = await loadImage(imageToUse)
 
       // Bordas arredondadas para a imagem
       ctx.save()

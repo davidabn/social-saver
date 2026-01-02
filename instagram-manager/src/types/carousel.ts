@@ -14,6 +14,7 @@ export interface CarouselSlide {
   // Campos para templates
   layoutType?: SlideLayoutType
   highlightWords?: string[]  // Palavras para destacar (sublinhado)
+  showMockup?: boolean  // Mostrar imagem mockup quando não há imagem (default: true)
   // Controle de tamanho de fonte (sobrescreve template)
   headlineFontSize?: number
   bodyFontSize?: number
@@ -79,7 +80,8 @@ export const DEFAULT_SLIDE: Omit<CarouselSlide, 'id' | 'slideNumber'> = {
   backgroundColor: '#000000',
   gradientColor: '#000000',
   gradientOpacity: 1.0,
-  textColor: '#FFFFFF'
+  textColor: '#FFFFFF',
+  showMockup: true
 }
 
 export const DEFAULT_DESIGN: Omit<CarouselDesign, 'id'> = {

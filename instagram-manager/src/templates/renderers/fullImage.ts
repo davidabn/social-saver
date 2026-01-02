@@ -10,7 +10,8 @@ import {
   loadImage,
   percentToPixel,
   createFontString,
-  createCondensedFontString
+  createCondensedFontString,
+  MOCKUP_IMAGE_URL
 } from './base'
 
 export async function renderFullImageLayout(
@@ -28,9 +29,11 @@ export async function renderFullImageLayout(
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
   // 2. Desenha imagem fullscreen
-  if (slide.imageUrl && layout.imageArea) {
+  // Usa mockup se não tiver imagem e showMockup !== false
+  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
+  if (imageToUse && layout.imageArea) {
     try {
-      const img = await loadImage(slide.imageUrl)
+      const img = await loadImage(imageToUse)
       drawImageCover(
         ctx, img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT,
         layoutPositions?.imageScale ?? 1.0,

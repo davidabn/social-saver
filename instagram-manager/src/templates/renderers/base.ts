@@ -3,6 +3,9 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/types/carousel'
 
 const API_URL = 'http://localhost:3001/api'
 
+// URL da imagem mockup para slides sem imagem
+export const MOCKUP_IMAGE_URL = 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1080&q=80'
+
 // Proxy de imagem para evitar problemas de CORS
 export function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null

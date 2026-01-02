@@ -9,7 +9,8 @@ import {
   drawTextWithUnderline,
   loadImage,
   percentToPixel,
-  createFontString
+  createFontString,
+  MOCKUP_IMAGE_URL
 } from './base'
 
 export async function renderTextTopLayout(
@@ -73,9 +74,11 @@ export async function renderTextTopLayout(
   })
 
   // 4. Desenha imagem abaixo do headline
-  if (slide.imageUrl && layout.imageArea) {
+  // Usa mockup se não tiver imagem e showMockup !== false
+  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
+  if (imageToUse && layout.imageArea) {
     try {
-      const img = await loadImage(slide.imageUrl)
+      const img = await loadImage(imageToUse)
       const imgY = percentToPixel(layout.imageArea.y, 'height')
       const imgHeight = percentToPixel(layout.imageArea.height || 65, 'height')
 

@@ -8,7 +8,8 @@ import {
   drawTextWithUnderline,
   loadImage,
   percentToPixel,
-  createFontString
+  createFontString,
+  MOCKUP_IMAGE_URL
 } from './base'
 
 export async function renderTextImageTextLayout(
@@ -75,9 +76,11 @@ export async function renderTextImageTextLayout(
   })
 
   // 5. Desenha imagem no meio (com bordas arredondadas)
-  if (slide.imageUrl && layout.imageArea) {
+  // Usa mockup se não tiver imagem e showMockup !== false
+  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
+  if (imageToUse && layout.imageArea) {
     try {
-      const img = await loadImage(slide.imageUrl)
+      const img = await loadImage(imageToUse)
 
       const imgMargin = 20
       const imgRadius = 20

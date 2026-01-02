@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Palette, Upload, Loader2 } from 'lucide-react'
+import { Search, Palette, Upload, Loader2, Eye, EyeOff } from 'lucide-react'
 import type { CarouselSlide } from '@/types/carousel'
 import type { CarouselTemplate, SlideLayoutType } from '@/types/template'
 import { LayoutSelector } from './LayoutSelector'
@@ -124,6 +124,33 @@ export function SlideEditor({
           <p className="text-xs text-red-500">
             Erro: {uploadImage.error?.message || 'Falha no upload. Max 10MB.'}
           </p>
+        )}
+        {/* Toggle para mostrar/ocultar mockup quando não tem imagem */}
+        {!slide.imageUrl && (
+          <div className="flex items-center justify-between mt-2 p-2 bg-muted/50 rounded-md">
+            <span className="text-xs text-muted-foreground">
+              Imagem placeholder
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onUpdate({ showMockup: slide.showMockup === false ? true : false })}
+              className="h-7 px-2"
+              title={slide.showMockup === false ? 'Mostrar placeholder' : 'Ocultar placeholder'}
+            >
+              {slide.showMockup === false ? (
+                <>
+                  <EyeOff className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Oculto</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Visível</span>
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </div>
 
