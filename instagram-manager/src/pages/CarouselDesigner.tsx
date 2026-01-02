@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,8 @@ import { ImageSearchModal } from '@/components/carousel/ImageSearchModal'
 import { TemplateSelector } from '@/components/carousel/TemplateSelector'
 import { ScriptImportModal } from '@/components/carousel/ScriptImportModal'
 import { useGenerateSlidesWithImages, useSearchImages, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
-import type { CarouselSlide, CarouselDesign } from '@/types/carousel'
+import { usePersona } from '@/hooks/useAI'
+import type { CarouselSlide, CarouselDesign, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
 import { getDefaultLayoutForSlide } from '@/templates/renderers'
@@ -69,6 +70,18 @@ export default function CarouselDesigner() {
   const generateImagePrompts = useGenerateImagePrompts()
   const generateAIImages = useGenerateAIImages()
   const [isGeneratingAIImages, setIsGeneratingAIImages] = useState(false)
+
+  // Profile branding (from persona)
+  const { data: persona } = usePersona()
+  const profileBranding = useMemo<ProfileBranding | undefined>(() => {
+    if (!persona?.displayName && !persona?.username) return undefined
+    return {
+      displayName: persona.displayName || '',
+      username: persona.username || '',
+      avatarUrl: persona.avatarUrl || null,
+      isVerified: persona.isVerified
+    }
+  }, [persona])
 
   const selectedSlide = design.slides.find(s => s.id === selectedSlideId) || design.slides[0]
 
@@ -259,7 +272,8 @@ export default function CarouselDesigner() {
           slide,
           design.brandingText,
           selectedTemplate || undefined,
-          selectedTemplate ? headerTexts : undefined
+          selectedTemplate ? headerTexts : undefined,
+          profileBranding
         )
         const link = document.createElement('a')
         link.download = `${design.name}-slide-${slide.slideNumber}.png`
@@ -475,6 +489,7 @@ export default function CarouselDesigner() {
               brandingText={design.brandingText}
               template={selectedTemplate || undefined}
               headerTexts={selectedTemplate ? headerTexts : undefined}
+              profileBranding={profileBranding}
               isPreview={true}
               scale={0.5}
               onPositionChange={(updates) => updateSlide(selectedSlide.id, updates)}

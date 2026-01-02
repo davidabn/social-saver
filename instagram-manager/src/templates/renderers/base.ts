@@ -1,5 +1,5 @@
 import type { CarouselTemplate, HeaderTexts, GradientOverlayConfig } from '@/types/template'
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/types/carousel'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, ProfileBranding } from '@/types/carousel'
 
 const API_URL = 'http://localhost:3001/api'
 
@@ -11,7 +11,14 @@ export function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
   if (url.startsWith('data:')) return url
   if (url.includes('/api/proxy/')) return url
-  if (url.includes('unsplash.com') || url.includes('pexels.com') || url.includes('pixabay.com') || url.includes('supabase.co')) {
+  // URLs que podem ser acessadas diretamente (não precisam de proxy)
+  if (url.includes('unsplash.com') ||
+      url.includes('pexels.com') ||
+      url.includes('pixabay.com') ||
+      url.includes('supabase.co') ||
+      url.includes('kie.ai') ||            // Kie.ai image generation CDN
+      url.includes('replicate.delivery')    // Common AI image CDN
+  ) {
     return url
   }
   return `${API_URL}/proxy/image?url=${encodeURIComponent(url)}`
@@ -347,4 +354,112 @@ export function calculateDynamicFontSize(
   }
 
   return baseSize
+}
+
+// Desenha branding card do perfil (foto, nome, @username)
+export async function drawProfileBranding(
+  ctx: CanvasRenderingContext2D,
+  branding: ProfileBranding,
+  x: number,
+  y: number,
+  textColor: string = '#FFFFFF'
+): Promise<{ height: number }> {
+  const avatarSize = 56
+  const avatarX = x
+  const avatarY = y
+  const textX = avatarX + avatarSize + 16
+  const nameY = avatarY + 20
+  const usernameY = nameY + 26
+
+  ctx.save()
+
+  // 1. Desenhar foto de perfil circular (como Instagram - crop centralizado)
+  if (branding.avatarUrl) {
+    try {
+      const avatarImg = await loadImage(branding.avatarUrl)
+
+      // Criar clipping circular
+      ctx.beginPath()
+      ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+      ctx.closePath()
+      ctx.clip()
+
+      // Calcular crop centralizado mantendo aspect ratio (como Instagram)
+      const imgWidth = avatarImg.naturalWidth || avatarImg.width
+      const imgHeight = avatarImg.naturalHeight || avatarImg.height
+      const minDim = Math.min(imgWidth, imgHeight)
+
+      // Source: quadrado centralizado da imagem original
+      const sx = (imgWidth - minDim) / 2
+      const sy = (imgHeight - minDim) / 2
+
+      // Desenhar com crop centralizado
+      ctx.drawImage(
+        avatarImg,
+        sx, sy, minDim, minDim,  // source (crop quadrado centralizado)
+        avatarX, avatarY, avatarSize, avatarSize  // destination
+      )
+
+      // Resetar clip
+      ctx.restore()
+      ctx.save()
+    } catch (e) {
+      // Fallback: círculo cinza se imagem não carregar
+      console.error('Failed to load avatar:', branding.avatarUrl, e)
+      ctx.fillStyle = '#666666'
+      ctx.beginPath()
+      ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  } else {
+    // Sem avatar: desenhar círculo placeholder
+    ctx.fillStyle = '#666666'
+    ctx.beginPath()
+    ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 2. Desenhar nome + verificado
+  ctx.fillStyle = textColor
+  ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+
+  const nameText = branding.displayName || 'Seu Nome'
+  ctx.fillText(nameText, textX, nameY)
+
+  // Checkmark verificado
+  if (branding.isVerified) {
+    const nameWidth = ctx.measureText(nameText).width
+    const checkmarkX = textX + nameWidth + 16  // Espaçamento adequado
+    const checkmarkY = nameY
+
+    // Círculo azul
+    ctx.fillStyle = '#1DA1F2'
+    ctx.beginPath()
+    ctx.arc(checkmarkX, checkmarkY, 10, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Checkmark branco
+    ctx.strokeStyle = '#FFFFFF'
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(checkmarkX - 4, checkmarkY)
+    ctx.lineTo(checkmarkX - 1, checkmarkY + 3)
+    ctx.lineTo(checkmarkX + 5, checkmarkY - 3)
+    ctx.stroke()
+  }
+
+  // 3. Desenhar @username
+  ctx.fillStyle = hexToRgba(textColor, 0.7)
+  ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  const usernameText = branding.username ? `@${branding.username}` : '@username'
+  ctx.fillText(usernameText, textX, usernameY)
+
+  ctx.restore()
+
+  // Retorna altura total do branding card
+  return { height: avatarSize + 10 }
 }

@@ -1,4 +1,4 @@
-import type { CarouselSlide } from '@/types/carousel'
+import type { CarouselSlide, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts, SlideLayoutConfig } from '@/types/template'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/types/carousel'
 import {
@@ -10,6 +10,7 @@ import {
   loadImage,
   percentToPixel,
   createFontString,
+  drawProfileBranding,
   MOCKUP_IMAGE_URL
 } from './base'
 
@@ -18,7 +19,8 @@ export async function renderCoverLayout(
   slide: CarouselSlide,
   template: CarouselTemplate,
   layout: SlideLayoutConfig,
-  headerTexts: HeaderTexts
+  headerTexts: HeaderTexts,
+  profileBranding?: ProfileBranding
 ): Promise<void> {
   const { typography, decorations } = template
   const layoutPositions = slide.customPositions?.['cover']
@@ -53,6 +55,27 @@ export async function renderCoverLayout(
 
   // 4. Desenha header
   drawHeader(ctx, template, headerTexts)
+
+  // 4.5. Desenha branding card (apenas no slide 1)
+  if (slide.slideNumber === 1 && profileBranding && (profileBranding.displayName || profileBranding.username)) {
+    // Usa posição customizada se disponível, senão usa default
+    const defaultBrandingX = layout.headlineArea.x
+    const baseHeadlineY = layoutPositions?.headlineY !== undefined
+      ? layoutPositions.headlineY
+      : layout.headlineArea.y
+    const defaultBrandingY = baseHeadlineY - 8  // 8% acima do headline
+
+    const brandingX = percentToPixel(layoutPositions?.brandingX ?? defaultBrandingX, 'width')
+    const brandingY = percentToPixel(layoutPositions?.brandingY ?? defaultBrandingY, 'height')
+
+    await drawProfileBranding(
+      ctx,
+      profileBranding,
+      brandingX,
+      brandingY,
+      layout.headlineColor
+    )
+  }
 
   // 5. Desenha headline
   const headlineX = percentToPixel(layout.headlineArea.x, 'width')

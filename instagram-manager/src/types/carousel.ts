@@ -29,6 +29,9 @@ export interface CarouselSlide {
       imageScale?: number     // Escala (1.0 = 100%, 0.5 = 50%, 3.0 = 300%)
       imageOffsetX?: number   // Offset X em % (-50 a 50)
       imageOffsetY?: number   // Offset Y em % (-50 a 50)
+      // Posição do branding card (apenas slide 1)
+      brandingX?: number      // Posição X em % (0-100)
+      brandingY?: number      // Posição Y em % (0-100)
     }
   }
 }
@@ -98,3 +101,11 @@ export const DEFAULT_DESIGN: Omit<CarouselDesign, 'id'> = {
 export const CANVAS_WIDTH = 1080
 export const CANVAS_HEIGHT = 1350
 export const PREVIEW_SCALE = 0.4 // Scale for preview display
+
+// Profile branding for first slide
+export interface ProfileBranding {
+  displayName: string       // "David Facundo"
+  username: string          // "davidabn_" (without @)
+  avatarUrl: string | null  // Profile photo URL
+  isVerified?: boolean      // Show blue checkmark
+}

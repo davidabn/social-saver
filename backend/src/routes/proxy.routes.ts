@@ -16,15 +16,20 @@ router.get('/image', async (req: Request, res: Response) => {
       return
     }
 
-    // Validate URL is from Instagram CDN
+    // Validate URL is from Allowed CDN
     const url = new URL(imageUrl)
-    const isInstagramCDN = url.hostname.endsWith('cdninstagram.com') ||
+    const isAllowedCDN = url.hostname.endsWith('cdninstagram.com') ||
                            url.hostname.includes('instagram.com') ||
-                           url.hostname.endsWith('fbcdn.net')
+                           url.hostname.endsWith('fbcdn.net') ||
+                           url.hostname.includes('tiktokcdn.com') ||
+                           url.hostname.includes('tiktok.com') ||
+                           url.hostname.includes('byteoversea.com') ||
+                           url.hostname.includes('ibyteimg.com') || // TikTok image CDN
+                           url.hostname.includes('supabase.co') // Supabase Storage (avatars)
 
-    // console.log('[Proxy] Hostname:', url.hostname, 'Allowed:', isInstagramCDN)
+    // console.log('[Proxy] Hostname:', url.hostname, 'Allowed:', isAllowedCDN)
 
-    if (!isInstagramCDN) {
+    if (!isAllowedCDN) {
       console.log('[Proxy] Error: URL not allowed')
       res.status(403).json({ message: 'URL not allowed' })
       return
@@ -38,7 +43,8 @@ router.get('/image', async (req: Request, res: Response) => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'image/webp,image/apng,image/*,video/*,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://www.instagram.com/'
+        // Referer might need to be dynamic or omitted for TikTok
+        // 'Referer': 'https://www.instagram.com/' 
       }
     })
 

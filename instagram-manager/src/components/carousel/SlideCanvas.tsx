@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { CarouselSlide } from '@/types/carousel'
+import type { CarouselSlide, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PREVIEW_SCALE } from '@/types/carousel'
 import { renderSlideWithTemplate } from '@/templates/renderers'
@@ -10,14 +10,21 @@ function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
   if (url.startsWith('data:')) return url
   if (url.includes('/api/proxy/')) return url
-  if (url.includes('unsplash.com') || url.includes('pexels.com') || url.includes('pixabay.com')) {
+  // URLs que podem ser acessadas diretamente (não precisam de proxy)
+  if (url.includes('unsplash.com') ||
+      url.includes('pexels.com') ||
+      url.includes('pixabay.com') ||
+      url.includes('supabase.co') ||        // Supabase Storage (avatars)
+      url.includes('kie.ai') ||             // Kie.ai image generation CDN
+      url.includes('replicate.delivery')    // Common AI image CDN
+  ) {
     return url
   }
   return `${API_URL}/proxy/image?url=${encodeURIComponent(url)}`
 }
 
 // Tipos para drag-and-drop
-type DraggableElement = 'headline' | 'body' | 'image'
+type DraggableElement = 'headline' | 'body' | 'image' | 'branding'
 type DragMode = 'position' | 'pan'  // 'position' move o container, 'pan' move a imagem dentro do frame
 
 interface ElementBounds {
@@ -27,12 +34,14 @@ interface ElementBounds {
   width: number
   height: number
   currentYPercent: number
+  currentXPercent?: number  // Para branding que move em X também
 }
 
 interface DragState {
   element: DraggableElement
   mode: DragMode
   startY: number
+  startX: number  // Para branding que move em X
   startMouseY: number
   startMouseX: number
   startOffsetX: number
@@ -44,6 +53,7 @@ interface SlideCanvasProps {
   brandingText: string
   template?: CarouselTemplate
   headerTexts?: HeaderTexts
+  profileBranding?: ProfileBranding
   isPreview?: boolean
   scale?: number
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
@@ -55,6 +65,7 @@ export function SlideCanvas({
   brandingText,
   template,
   headerTexts,
+  profileBranding,
   isPreview = true,
   scale = PREVIEW_SCALE,
   onCanvasReady,
@@ -103,7 +114,7 @@ export function SlideCanvas({
 
     // Se tiver template, usa o sistema de renderização de templates
     if (template && headerTexts) {
-      renderSlideWithTemplate(ctx, slide, template, headerTexts)
+      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding)
         .then(() => {
           // Calcular bounds dos elementos após renderização
           const bounds = calculateElementBounds(slide, template, headerTexts)
@@ -120,7 +131,7 @@ export function SlideCanvas({
     } else {
       renderDefaultSlide(ctx, slide, brandingText, onCanvasReady ? () => onCanvasReady(canvas) : undefined)
     }
-  }, [slide, brandingText, template, headerTexts, isPreview, scale, onCanvasReady])
+  }, [slide, brandingText, template, headerTexts, profileBranding, isPreview, scale, onCanvasReady])
 
   // Calcula bounds dos elementos arrastáveis
   const calculateElementBounds = useCallback((
@@ -206,6 +217,25 @@ export function SlideCanvas({
       })
     }
 
+    // Branding bounds (apenas no slide 1 com layout cover)
+    if (slide.slideNumber === 1 && layoutType === 'cover') {
+      const defaultBrandingX = layout.headlineArea.x  // Default: mesmo X do headline
+      const defaultBrandingY = (layout.headlineArea.y) - 8  // Default: acima do headline
+
+      const brandingX = layoutPositions?.brandingX ?? defaultBrandingX
+      const brandingY = layoutPositions?.brandingY ?? defaultBrandingY
+
+      bounds.push({
+        element: 'branding',
+        x: (brandingX / 100) * CANVAS_WIDTH,
+        y: (brandingY / 100) * CANVAS_HEIGHT,
+        width: 300,  // Largura aproximada do branding
+        height: 70,  // Altura aproximada do branding
+        currentYPercent: brandingY,
+        currentXPercent: brandingX
+      })
+    }
+
     return bounds
   }, [])
 
@@ -255,6 +285,7 @@ export function SlideCanvas({
         element,
         mode: 'pan',
         startY: bound.currentYPercent,
+        startX: bound.currentXPercent ?? 0,
         startMouseY: e.clientY,
         startMouseX: e.clientX,
         startOffsetX: layoutPositions?.imageOffsetX ?? 0,
@@ -266,6 +297,7 @@ export function SlideCanvas({
         element,
         mode: 'position',
         startY: bound.currentYPercent,
+        startX: bound.currentXPercent ?? 0,
         startMouseY: e.clientY,
         startMouseX: e.clientX,
         startOffsetX: 0,
@@ -350,6 +382,23 @@ export function SlideCanvas({
             [layoutType]: {
               ...slide.customPositions?.[layoutType],
               imageY: newY
+            }
+          }
+        })
+      } else if (dragState.element === 'branding') {
+        // Branding move em X e Y
+        const deltaX = e.clientX - dragState.startMouseX
+        const deltaPercentX = (deltaX / rect.width) * 100
+        let newX = dragState.startX + deltaPercentX
+        newY = Math.max(5, Math.min(70, newY))  // Constraints Y
+        newX = Math.max(3, Math.min(70, newX))  // Constraints X
+        onPositionChange?.({
+          customPositions: {
+            ...slide.customPositions,
+            [layoutType]: {
+              ...slide.customPositions?.[layoutType],
+              brandingX: newX,
+              brandingY: newY
             }
           }
         })
@@ -457,7 +506,7 @@ export function SlideCanvas({
         <div className="absolute top-2 left-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium">
           {dragState.mode === 'pan'
             ? 'Movendo imagem dentro do frame'
-            : `Arrastando: ${dragState.element === 'headline' ? 'Título' : dragState.element === 'body' ? 'Texto' : 'Imagem'}`
+            : `Arrastando: ${dragState.element === 'headline' ? 'Título' : dragState.element === 'body' ? 'Texto' : dragState.element === 'branding' ? 'Branding' : 'Imagem'}`
           }
         </div>
       )}
@@ -476,7 +525,9 @@ export function SlideCanvas({
             ? (isAltPressed
                 ? 'Arraste para mover a imagem | Duplo clique para resetar'
                 : 'Scroll para zoom | Alt+arrastar para mover | Duplo clique para resetar')
-            : `Arraste para mover ${hoveredElement === 'headline' ? 'o título' : 'o texto'}`
+            : hoveredElement === 'branding'
+              ? 'Arraste para mover o branding'
+              : `Arraste para mover ${hoveredElement === 'headline' ? 'o título' : 'o texto'}`
           }
         </div>
       )}
@@ -599,7 +650,8 @@ export async function generateFullResCanvas(
   slide: CarouselSlide,
   brandingText: string,
   template?: CarouselTemplate,
-  headerTexts?: HeaderTexts
+  headerTexts?: HeaderTexts,
+  profileBranding?: ProfileBranding
 ): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas')
@@ -614,7 +666,7 @@ export async function generateFullResCanvas(
 
     // Se tiver template, usa o sistema de renderização de templates
     if (template && headerTexts) {
-      renderSlideWithTemplate(ctx, slide, template, headerTexts)
+      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding)
         .then(() => resolve(canvas))
         .catch((error) => {
           console.error('Failed to render slide with template:', error)

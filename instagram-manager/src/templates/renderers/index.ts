@@ -1,4 +1,4 @@
-import type { CarouselSlide } from '@/types/carousel'
+import type { CarouselSlide, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts, SlideLayoutType } from '@/types/template'
 import { renderCoverLayout } from './cover'
 import { renderImageTopLayout } from './imageTop'
@@ -22,7 +22,8 @@ export async function renderSlideWithTemplate(
   ctx: CanvasRenderingContext2D,
   slide: CarouselSlide,
   template: CarouselTemplate,
-  headerTexts: HeaderTexts
+  headerTexts: HeaderTexts,
+  profileBranding?: ProfileBranding
 ): Promise<void> {
   // Determina o tipo de layout a usar
   const layoutType = slide.layoutType || getDefaultLayoutForSlide(slide.slideNumber, template)
@@ -41,8 +42,12 @@ export async function renderSlideWithTemplate(
     return
   }
 
-  // Renderiza o slide
-  await renderer(ctx, slide, template, layout, headerTexts)
+  // Renderiza o slide (cover recebe branding extra)
+  if (layoutType === 'cover') {
+    await renderCoverLayout(ctx, slide, template, layout, headerTexts, profileBranding)
+  } else {
+    await renderer(ctx, slide, template, layout, headerTexts)
+  }
 }
 
 // Retorna o layout padrão para um slide baseado na sua posição
