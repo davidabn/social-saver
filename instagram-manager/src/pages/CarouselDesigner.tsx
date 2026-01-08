@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon, ChevronDown, Palette } from 'lucide-react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon, ChevronDown, Palette, FolderOpen, Cloud, CloudOff, Undo2, Redo2 } from 'lucide-react'
+import { useUndoRedo } from '@/hooks/useUndoRedo'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -26,12 +27,14 @@ import { PaletteSelector } from '@/components/carousel/PaletteSelector'
 import { DEFAULT_PALETTE, type ColorPalette } from '@/templates/palettes'
 import { ScriptImportModal } from '@/components/carousel/ScriptImportModal'
 import { useGenerateSlidesWithImages, useSearchImages, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
+import { useSaveCarousel, useCarousel, useCarouselList, useDeleteCarousel } from '@/hooks/useCarouselPersistence'
 import { usePersona } from '@/hooks/useAI'
 import type { CarouselSlide, CarouselDesign, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
 import { getDefaultLayoutForSlide } from '@/templates/renderers'
-import type { ParsedSlide } from '@/utils/scriptParser'
+import { getTemplateById } from '@/templates'
+import { parseCarouselScript, type ParsedSlide } from '@/utils/scriptParser'
 import { exportSlidesAsPsd, exportSlidesAsPsdZip, exportSlidesAsPdfEditable } from '@/utils/psdExport'
 
 function generateId() {
@@ -50,9 +53,34 @@ function createNewSlide(slideNumber: number, template?: CarouselTemplate): Carou
 export default function CarouselDesigner() {
   const { contentId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const passedScript = (location.state as { script?: string })?.script
 
-  // Design state
-  const [design, setDesign] = useState<CarouselDesign>({
+  // Carousel persistence
+  const carouselIdFromUrl = searchParams.get('id')
+  const [carouselId, setCarouselId] = useState<string | null>(carouselIdFromUrl)
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [showSavedCarousels, setShowSavedCarousels] = useState(false)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isLoadingRef = useRef(false) // Evita auto-save durante carregamento
+
+  const saveCarouselMutation = useSaveCarousel()
+  const { data: loadedCarousel, isLoading: isLoadingCarousel } = useCarousel(carouselIdFromUrl)
+  const { data: savedCarouselsList } = useCarouselList()
+  const deleteCarouselMutation = useDeleteCarousel()
+
+  // Design state with undo/redo
+  const {
+    state: design,
+    setState: setDesign,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    resetState: resetDesign
+  } = useUndoRedo<CarouselDesign>({
     id: generateId(),
     ...DEFAULT_DESIGN,
     slides: [createNewSlide(1)]
@@ -62,9 +90,9 @@ export default function CarouselDesigner() {
   const [selectedTemplate, setSelectedTemplate] = useState<CarouselTemplate | null>(null)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [headerTexts, setHeaderTexts] = useState<HeaderTexts>({
-    left: 'ESTUDO DE CASO',
-    center: 'SEU BRAND',
-    right: '© COPYRIGHT 2025'
+    left: '',
+    center: '',
+    right: `© COPYRIGHT ${new Date().getFullYear()}`
   })
 
   const [selectedSlideId, setSelectedSlideId] = useState<string>(design.slides[0]?.id || '')
@@ -81,6 +109,7 @@ export default function CarouselDesigner() {
   const generateImagePrompts = useGenerateImagePrompts()
   const generateAIImages = useGenerateAIImages()
   const [isGeneratingAIImages, setIsGeneratingAIImages] = useState(false)
+  const [isGeneratingSingleImage, setIsGeneratingSingleImage] = useState(false)
 
   // Profile branding (from persona)
   const { data: persona } = usePersona()
@@ -93,6 +122,103 @@ export default function CarouselDesigner() {
       isVerified: persona.isVerified
     }
   }, [persona])
+
+  // Preenche headers com dados da persona quando carrega (primeira vez apenas)
+  useEffect(() => {
+    if (persona && !headerTexts.left && !headerTexts.center) {
+      setHeaderTexts(prev => ({
+        left: persona.displayName || prev.left,
+        center: persona.username || prev.center,
+        right: prev.right
+      }))
+    }
+  }, [persona])
+
+  // Carregar carrossel da URL (se tiver id)
+  useEffect(() => {
+    if (loadedCarousel?.data && !isLoadingRef.current) {
+      isLoadingRef.current = true
+      console.log('[Carousel] Loading saved carousel:', loadedCarousel.id)
+
+      // Restaurar design (usando resetDesign para não poluir histórico de undo)
+      const designToLoad = loadedCarousel.data.templateId
+        ? { ...loadedCarousel.data.design, templateId: loadedCarousel.data.templateId }
+        : loadedCarousel.data.design
+      resetDesign(designToLoad)
+      setHeaderTexts(loadedCarousel.data.headerTexts)
+      setCustomPalette(loadedCarousel.data.customPalette)
+      setCarouselId(loadedCarousel.id)
+
+      // Restaurar template selecionado
+      if (loadedCarousel.data.templateId) {
+        const template = getTemplateById(loadedCarousel.data.templateId)
+        if (template) {
+          setSelectedTemplate(template)
+        }
+      }
+
+      // Selecionar primeiro slide
+      if (loadedCarousel.data.design.slides.length > 0) {
+        setSelectedSlideId(loadedCarousel.data.design.slides[0].id)
+      }
+
+      // Pequeno delay antes de permitir auto-save
+      setTimeout(() => {
+        isLoadingRef.current = false
+      }, 1000)
+    }
+  }, [loadedCarousel, resetDesign])
+
+  // Auto-save com debounce (3 segundos)
+  useEffect(() => {
+    // Não salva se estiver carregando
+    if (isLoadingRef.current || isLoadingCarousel) return
+
+    // Não salva se não tiver slides
+    if (!design.slides.length) return
+
+    // Cancelar timeout anterior
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    // Agendar novo save
+    saveTimeoutRef.current = setTimeout(async () => {
+      setIsSaving(true)
+      try {
+        const result = await saveCarouselMutation.mutateAsync({
+          id: carouselId || undefined,
+          name: design.name || 'Sem título',
+          data: {
+            design,
+            headerTexts,
+            templateId: selectedTemplate?.id || null,
+            customPalette
+          }
+        })
+
+        // Se era novo, guardar o ID e atualizar URL
+        if (!carouselId && result.id) {
+          setCarouselId(result.id)
+          setSearchParams({ id: result.id }, { replace: true })
+        }
+
+        setLastSaved(new Date())
+        console.log('[Carousel] Auto-saved:', result.id)
+      } catch (error) {
+        console.error('[Carousel] Auto-save failed:', error)
+      } finally {
+        setIsSaving(false)
+      }
+    }, 3000) // 3 segundos de debounce
+
+    // Cleanup
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [design, headerTexts, selectedTemplate?.id, customPalette])
 
   const selectedSlide = design.slides.find(s => s.id === selectedSlideId) || design.slides[0]
 
@@ -111,16 +237,35 @@ export default function CarouselDesigner() {
     }))
   }, [])
 
+  // Callbacks memoizados para SlideCanvas (evita re-renders por função nova)
+  const handlePositionChange = useCallback(
+    (updates: Partial<CarouselSlide>) => {
+      if (selectedSlide) {
+        updateSlide(selectedSlide.id, updates)
+      }
+    },
+    [selectedSlide?.id, updateSlide]
+  )
+
+  const handleTextChange = useCallback(
+    (field: 'headline' | 'body', value: string) => {
+      if (selectedSlide) {
+        updateSlide(selectedSlide.id, { [field]: value })
+      }
+    },
+    [selectedSlide?.id, updateSlide]
+  )
+
   // Handle template selection
   const handleSelectTemplate = useCallback((template: CarouselTemplate | null) => {
     setSelectedTemplate(template)
 
     if (template) {
-      // Update header texts with template defaults
+      // Update header texts - usa dados da persona se disponíveis, senão usa defaults do template
       setHeaderTexts({
-        left: template.header.defaultLeft,
-        center: template.header.defaultCenter,
-        right: template.header.defaultRight
+        left: persona?.displayName || template.header.defaultLeft,
+        center: persona?.username || template.header.defaultCenter,
+        right: `© COPYRIGHT ${new Date().getFullYear()}`
       })
 
       // Apply default layouts to existing slides
@@ -143,7 +288,7 @@ export default function CarouselDesigner() {
         }))
       }))
     }
-  }, [])
+  }, [persona])
 
   // Add slide
   const handleAddSlide = useCallback(() => {
@@ -229,12 +374,14 @@ export default function CarouselDesigner() {
 
       const prompts = await generateImagePrompts.mutateAsync({
         slides: slidesForPrompts,
-        theme: topic || design.theme || 'professional carousel'
+        theme: topic || design.theme || 'professional carousel',
+        templateId: selectedTemplate?.id
       })
 
       // Step 2: Generate images from prompts
       const result = await generateAIImages.mutateAsync({
-        prompts: prompts
+        prompts: prompts,
+        templateId: selectedTemplate?.id
       })
 
       // Step 3: Update slides with generated images
@@ -273,11 +420,14 @@ export default function CarouselDesigner() {
     }
   }
 
-  // Export all slides as PNG
+  // Export all slides as PNG (ZIP)
   const handleExportPNG = async () => {
     setIsExporting(true)
 
     try {
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+
       for (const slide of design.slides) {
         const canvas = await generateFullResCanvas(
           slide,
@@ -287,13 +437,23 @@ export default function CarouselDesigner() {
           profileBranding,
           selectedTemplate ? customPalette : undefined
         )
-        const link = document.createElement('a')
-        link.download = `${design.name}-slide-${slide.slideNumber}.png`
-        link.href = canvas.toDataURL('image/png')
-        link.click()
 
-        await new Promise(resolve => setTimeout(resolve, 300))
+        // Converter canvas para blob
+        const blob = await new Promise<Blob>((resolve) => {
+          canvas.toBlob((b) => resolve(b!), 'image/png')
+        })
+
+        // Adicionar ao ZIP
+        zip.file(`${design.name}-slide-${slide.slideNumber}.png`, blob)
       }
+
+      // Gerar e baixar o ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(zipBlob)
+      link.download = `${design.name}-slides.zip`
+      link.click()
+      URL.revokeObjectURL(link.href)
     } catch (error) {
       console.error('Failed to export slides:', error)
     } finally {
@@ -401,6 +561,20 @@ export default function CarouselDesigner() {
     }
   }, [selectedTemplate])
 
+  // Auto-importar script passado via navigation state (do ContentDetailModal)
+  useEffect(() => {
+    if (passedScript && !isLoadingCarousel && !isLoadingRef.current) {
+      // Limpar o state para não reimportar em navegações futuras
+      window.history.replaceState({}, document.title)
+
+      // Parsear e importar diretamente
+      const parsedSlides = parseCarouselScript(passedScript)
+      if (parsedSlides.length > 0) {
+        handleImportScript(parsedSlides)
+      }
+    }
+  }, [passedScript, isLoadingCarousel, handleImportScript])
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
@@ -416,9 +590,62 @@ export default function CarouselDesigner() {
               className="font-semibold border-none p-0 h-auto text-lg focus-visible:ring-0"
             />
           </div>
+          {/* Undo/Redo buttons */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={undo}
+              disabled={!canUndo}
+              title="Desfazer (Ctrl+Z)"
+              className="h-8 w-8"
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={redo}
+              disabled={!canRedo}
+              title="Refazer (Ctrl+Shift+Z)"
+              className="h-8 w-8"
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Save status indicator */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Salvando...</span>
+              </>
+            ) : lastSaved ? (
+              <>
+                <Cloud className="h-4 w-4 text-green-500" />
+                <span className="hidden sm:inline">Salvo às {lastSaved.toLocaleTimeString()}</span>
+              </>
+            ) : (
+              <>
+                <CloudOff className="h-4 w-4" />
+                <span className="hidden sm:inline">Não salvo</span>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Saved carousels button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSavedCarousels(true)}
+          >
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Meus Carrosseis
+          </Button>
+
           {/* Template button */}
           <Button
             variant="outline"
@@ -513,7 +740,7 @@ export default function CarouselDesigner() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleExportPNG}>
                 <Download className="h-4 w-4 mr-2" />
-                Exportar como PNG
+                Exportar PNG (ZIP)
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleExportPDF}
@@ -607,6 +834,7 @@ export default function CarouselDesigner() {
             template={selectedTemplate || undefined}
             headerTexts={selectedTemplate ? headerTexts : undefined}
             brandingText={design.brandingText}
+            customPalette={selectedTemplate ? customPalette : undefined}
           />
         </div>
 
@@ -622,7 +850,9 @@ export default function CarouselDesigner() {
               customPalette={selectedTemplate ? customPalette : undefined}
               isPreview={true}
               scale={0.5}
-              onPositionChange={(updates) => updateSlide(selectedSlide.id, updates)}
+              isGenerating={isGeneratingAIImages || isGeneratingSingleImage}
+              onPositionChange={handlePositionChange}
+              onTextChange={handleTextChange}
             />
           ) : (
             <div className="text-center text-muted-foreground">
@@ -641,6 +871,8 @@ export default function CarouselDesigner() {
               isSearching={searchImages.isPending}
               template={selectedTemplate || undefined}
               theme={topic || design.theme}
+              isGeneratingImage={isGeneratingSingleImage}
+              onGeneratingChange={setIsGeneratingSingleImage}
             />
           ) : (
             <div className="p-4 text-center text-muted-foreground">
@@ -680,6 +912,88 @@ export default function CarouselDesigner() {
         onClose={() => setShowScriptImport(false)}
         onImport={handleImportScript}
       />
+
+      {/* Saved carousels modal */}
+      {showSavedCarousels && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Meus Carrosseis</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowSavedCarousels(false)}>
+                ✕
+              </Button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              {savedCarouselsList && savedCarouselsList.length > 0 ? (
+                <div className="space-y-2">
+                  {savedCarouselsList.map((carousel) => (
+                    <div
+                      key={carousel.id}
+                      className={`p-3 border rounded-lg flex items-center justify-between hover:bg-accent cursor-pointer ${
+                        carousel.id === carouselId ? 'border-primary bg-primary/5' : ''
+                      }`}
+                      onClick={() => {
+                        setSearchParams({ id: carousel.id })
+                        setCarouselId(carousel.id)
+                        setShowSavedCarousels(false)
+                        window.location.reload() // Recarrega para carregar o carrossel
+                      }}
+                    >
+                      <div>
+                        <p className="font-medium">{carousel.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Atualizado: {new Date(carousel.updated_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (confirm('Tem certeza que deseja excluir este carrossel?')) {
+                              deleteCarouselMutation.mutate(carousel.id)
+                            }
+                          }}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          Excluir
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhum carrossel salvo ainda. Comece a editar e ele será salvo automaticamente!
+                </p>
+              )}
+            </div>
+            <div className="p-4 border-t flex justify-between">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Criar novo carrossel (resetDesign para limpar histórico)
+                  setCarouselId(null)
+                  setSearchParams({})
+                  resetDesign({
+                    id: generateId(),
+                    ...DEFAULT_DESIGN,
+                    slides: [createNewSlide(1, selectedTemplate || undefined)]
+                  })
+                  setLastSaved(null)
+                  setShowSavedCarousels(false)
+                }}
+              >
+                Novo Carrossel
+              </Button>
+              <Button onClick={() => setShowSavedCarousels(false)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

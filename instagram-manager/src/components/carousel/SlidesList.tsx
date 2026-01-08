@@ -2,6 +2,7 @@ import { Plus, Trash2, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CarouselSlide } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
+import type { ColorPalette } from '@/templates/palettes'
 import { cn } from '@/lib/utils'
 import { SlideCanvas } from './SlideCanvas'
 
@@ -15,6 +16,7 @@ interface SlidesListProps {
   template?: CarouselTemplate
   headerTexts?: HeaderTexts
   brandingText: string
+  customPalette?: ColorPalette
 }
 
 export function SlidesList({
@@ -26,7 +28,8 @@ export function SlidesList({
   onReorderSlides,
   template,
   headerTexts,
-  brandingText
+  brandingText,
+  customPalette
 }: SlidesListProps) {
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.dataTransfer.setData('slideIndex', index.toString())
@@ -115,6 +118,7 @@ export function SlidesList({
                     brandingText={brandingText}
                     template={template}
                     headerTexts={headerTexts}
+                    customPalette={customPalette}
                     isPreview={true}
                     scale={0.12}
                   />
