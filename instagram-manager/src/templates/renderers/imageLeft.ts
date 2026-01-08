@@ -1,16 +1,20 @@
 import type { CarouselSlide } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts, SlideLayoutConfig } from '@/types/template'
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/types/carousel'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, getLayoutPositions } from '@/types/carousel'
 import {
   drawHeader,
+  drawFooter,
+  drawGrain,
   drawImageCover,
+  drawImagePlaceholder,
   wrapText,
   drawTextWithUnderline,
   drawSeparatorLine,
   loadImage,
   percentToPixel,
   createFontString,
-  MOCKUP_IMAGE_URL
+  createCustomFontString,
+  renderRichText
 } from './base'
 
 export async function renderImageLeftLayout(
@@ -21,7 +25,7 @@ export async function renderImageLeftLayout(
   headerTexts: HeaderTexts
 ): Promise<void> {
   const { typography, decorations, header } = template
-  const layoutPositions = slide.customPositions?.['imageLeft']
+  const layoutPositions = getLayoutPositions(slide.customPositions, template.id, 'imageLeft')
 
   // Calcular dimensões das áreas
   const imageWidth = percentToPixel(layout.imageArea?.width || 40, 'width')
@@ -31,16 +35,25 @@ export async function renderImageLeftLayout(
   ctx.fillStyle = layout.backgroundColor
   ctx.fillRect(textAreaX, 0, CANVAS_WIDTH - textAreaX, CANVAS_HEIGHT)
 
-  // 2. Desenha imagem no lado esquerdo (40%)
-  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
-  if (imageToUse && layout.imageArea) {
-    try {
-      const img = await loadImage(imageToUse)
+  // 1.1 Desenha grain (textura granulada) - apenas na área de texto
+  if (slide.grainIntensity && slide.grainIntensity > 0) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(textAreaX, 0, CANVAS_WIDTH - textAreaX, CANVAS_HEIGHT)
+    ctx.clip()
+    drawGrain(ctx, slide.grainIntensity)
+    ctx.restore()
+  }
 
-      const imgX = percentToPixel(layout.imageArea.x, 'width')
-      const imgY = percentToPixel(layout.imageArea.y, 'height')
-      const imgWidth = percentToPixel(layout.imageArea.width, 'width')
-      const imgHeight = percentToPixel(layout.imageArea.height || 100, 'height')
+  // 2. Desenha imagem no lado esquerdo (40%)
+  const imgX = percentToPixel(layout.imageArea?.x || 0, 'width')
+  const imgY = percentToPixel(layout.imageArea?.y || 0, 'height')
+  const imgWidth = percentToPixel(layout.imageArea?.width || 40, 'width')
+  const imgHeight = percentToPixel(layout.imageArea?.height || 100, 'height')
+
+  if (slide.imageUrl && layout.imageArea) {
+    try {
+      const img = await loadImage(slide.imageUrl)
 
       drawImageCover(
         ctx, img, imgX, imgY, imgWidth, imgHeight,
@@ -50,11 +63,16 @@ export async function renderImageLeftLayout(
       )
     } catch (error) {
       console.error('Failed to load image for imageLeft layout:', error)
+      // Se falhar ao carregar, desenha placeholder
+      drawImagePlaceholder(ctx, imgX, imgY, imgWidth, imgHeight, 0)
     }
+  } else if (layout.imageArea) {
+    // Sem imagem definida - desenha placeholder visual (sem bordas arredondadas para layout lateral)
+    drawImagePlaceholder(ctx, imgX, imgY, imgWidth, imgHeight, 0)
   }
 
-  // 3. Desenha header (opcional)
-  drawHeader(ctx, template, headerTexts)
+  // 3. Desenha header (com cor ajustada ao fundo)
+  drawHeader(ctx, template, headerTexts, layout.backgroundColor)
 
   // 4. Desenha headline no lado direito (topo)
   const headlineX = percentToPixel(layout.headlineArea.x, 'width')
@@ -67,42 +85,85 @@ export async function renderImageLeftLayout(
   const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? typography.headlineSize
 
   ctx.fillStyle = layout.headlineColor
-  ctx.font = createFontString(
-    headlineSize,
-    typography.headlineFont,
-    typography.headlineWeight,
-    typography.headlineStyle
-  )
+  // Usa fonte customizada se definida, senão usa fonte do template
+  if (layoutPositions?.headlineFontFamily) {
+    ctx.font = createCustomFontString(
+      headlineSize,
+      layoutPositions.headlineFontFamily,
+      typography.headlineFont,
+      layoutPositions.headlineFontWeight ?? 400,
+      layoutPositions.headlineFontStyle ?? 'normal'
+    )
+  } else {
+    ctx.font = createFontString(
+      headlineSize,
+      typography.headlineFont,
+      typography.headlineWeight,
+      typography.headlineStyle
+    )
+  }
   const headlineAlign = layoutPositions?.headlineAlign ?? layout.headlineArea.align
   ctx.textAlign = headlineAlign
 
-  const headlineLines = wrapText(ctx, slide.headline, headlineWidth, 20)
+  // Verifica se tem formatação HTML
+  const hasHtmlFormatting = slide.headline.includes('<')
+
   const lineHeight = headlineSize * 1.15
+  let headlineEndY: number
 
-  headlineLines.forEach((line, index) => {
-    const x = headlineAlign === 'center'
-      ? textAreaX + (CANVAS_WIDTH - textAreaX) / 2
-      : headlineAlign === 'right'
-        ? CANVAS_WIDTH - (CANVAS_WIDTH - textAreaX - headlineX + textAreaX)
-        : headlineX
+  // Se tem formatação HTML, usa renderRichText
+  if (hasHtmlFormatting) {
+    const fontWeight = layoutPositions?.headlineFontWeight ?? 400
+    const fontStyle = layoutPositions?.headlineFontStyle ?? typography.headlineStyle ?? 'normal'
+    const fontFamily = layoutPositions?.headlineFontFamily ?? typography.headlineFont
 
-    if (decorations.underlineHeadline && slide.highlightWords?.length) {
-      drawTextWithUnderline(
-        ctx,
-        line,
-        x,
-        headlineY + (index * lineHeight),
-        slide.highlightWords,
-        decorations.underlineColor,
-        decorations.underlineThickness
-      )
-    } else {
-      ctx.fillText(line, x, headlineY + (index * lineHeight))
-    }
-  })
+    const renderedHeight = renderRichText(
+      ctx,
+      slide.headline,
+      headlineX,
+      headlineY,
+      headlineWidth,
+      {
+        fontSize: headlineSize,
+        fontFamily,
+        fontWeight,
+        fontStyle,
+        color: layout.headlineColor,
+        textAlign: headlineAlign,
+        lineHeight: 1.15
+      },
+      20
+    )
+    headlineEndY = headlineY + renderedHeight
+  } else {
+    // Renderização tradicional (sem HTML)
+    const headlineLines = wrapText(ctx, slide.headline, headlineWidth, 20)
 
-  // Calcular onde o headline termina
-  const headlineEndY = headlineY + (headlineLines.length * lineHeight)
+    headlineLines.forEach((line, index) => {
+      const x = headlineAlign === 'center'
+        ? textAreaX + (CANVAS_WIDTH - textAreaX) / 2
+        : headlineAlign === 'right'
+          ? CANVAS_WIDTH - (CANVAS_WIDTH - textAreaX - headlineX + textAreaX)
+          : headlineX
+
+      if (decorations.underlineHeadline && slide.highlightWords?.length) {
+        drawTextWithUnderline(
+          ctx,
+          line,
+          x,
+          headlineY + (index * lineHeight),
+          slide.highlightWords,
+          decorations.underlineColor,
+          decorations.underlineThickness
+        )
+      } else {
+        ctx.fillText(line, x, headlineY + (index * lineHeight))
+      }
+    })
+
+    // Calcular onde o headline termina
+    headlineEndY = headlineY + (headlineLines.length * lineHeight)
+  }
 
   // 5. Desenha body no lado direito (abaixo headline)
   const bodyX = percentToPixel(layout.bodyArea.x, 'width')
@@ -115,26 +176,68 @@ export async function renderImageLeftLayout(
   const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
-  ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
+  // Usa fonte customizada se definida, senão usa fonte do template
+  if (layoutPositions?.bodyFontFamily) {
+    ctx.font = createCustomFontString(
+      bodySize,
+      layoutPositions.bodyFontFamily,
+      typography.bodyFont,
+      layoutPositions.bodyFontWeight ?? 400,
+      layoutPositions.bodyFontStyle ?? 'normal'
+    )
+  } else {
+    ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
+  }
   const bodyAlign = layoutPositions?.bodyAlign ?? layout.bodyArea.align
   ctx.textAlign = bodyAlign
 
-  const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
+  // Verifica se body tem formatação HTML
+  const bodyHasHtml = slide.body.includes('<')
+
   const bodyLineHeight = bodySize * 1.4
+  let bodyEndY: number
 
-  bodyLines.forEach((line, index) => {
-    const x = bodyAlign === 'center'
-      ? textAreaX + (CANVAS_WIDTH - textAreaX) / 2
-      : bodyAlign === 'right'
-        ? CANVAS_WIDTH - (CANVAS_WIDTH - textAreaX - bodyX + textAreaX)
-        : bodyX
+  if (bodyHasHtml) {
+    const bodyFontWeight = layoutPositions?.bodyFontWeight ?? 400
+    const bodyFontStyle = layoutPositions?.bodyFontStyle ?? 'normal'
+    const bodyFontFamily = layoutPositions?.bodyFontFamily ?? typography.bodyFont
 
-    ctx.fillText(line, x, bodyY + (index * bodyLineHeight))
-  })
+    const renderedHeight = renderRichText(
+      ctx,
+      slide.body,
+      bodyX,
+      bodyY,
+      bodyWidth,
+      {
+        fontSize: bodySize,
+        fontFamily: bodyFontFamily,
+        fontWeight: bodyFontWeight,
+        fontStyle: bodyFontStyle,
+        color: layout.bodyColor,
+        textAlign: bodyAlign,
+        lineHeight: 1.4
+      },
+      20
+    )
+    bodyEndY = bodyY + renderedHeight
+  } else {
+    // Renderização tradicional
+    const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
+
+    bodyLines.forEach((line, index) => {
+      const x = bodyAlign === 'center'
+        ? textAreaX + (CANVAS_WIDTH - textAreaX) / 2
+        : bodyAlign === 'right'
+          ? CANVAS_WIDTH - (CANVAS_WIDTH - textAreaX - bodyX + textAreaX)
+          : bodyX
+
+      ctx.fillText(line, x, bodyY + (index * bodyLineHeight))
+    })
+    bodyEndY = bodyY + (bodyLines.length * bodyLineHeight)
+  }
 
   // 6. Desenha linha separadora (opcional) - abaixo do body
   if (decorations.separatorLine) {
-    const bodyEndY = bodyY + (bodyLines.length * bodyLineHeight)
     const separatorY = bodyEndY + 30
     drawSeparatorLine(
       ctx,
@@ -145,4 +248,7 @@ export async function renderImageLeftLayout(
       headlineX + 100
     )
   }
+
+  // 7. Desenha footer (apenas slides 2+, com cor ajustada ao fundo)
+  drawFooter(ctx, template, headerTexts, slide.slideNumber, layout.backgroundColor)
 }

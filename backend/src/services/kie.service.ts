@@ -1,8 +1,15 @@
-// Kie.ai Flux 2 Pro Image Generation Service
+// Kie.ai Image Generation Service (Flux 2 Pro + GPT Image 1.5)
 import { supabaseAdmin } from '../lib/supabase.js'
 
 const KIE_API_BASE = 'https://api.kie.ai/api/v1'
 const SUPABASE_BUCKET = 'carousel-images'
+
+// Modelos suportados
+type ImageModel = 'flux-2/pro-text-to-image' | 'gpt-image/1.5-text-to-image'
+
+interface ImageGenerationOptions {
+  model?: ImageModel
+}
 
 interface CreateTaskResponse {
   code: number
@@ -35,14 +42,23 @@ export class KieService {
   }
 
   /**
-   * Cria uma task de geração de imagem no Flux 2 Pro
+   * Cria uma task de geração de imagem
+   * @param prompt - Descrição da imagem
+   * @param options - Opções incluindo modelo (flux-2/pro ou gpt-image/1.5)
    */
-  async createImageTask(prompt: string): Promise<{ taskId: string }> {
+  async createImageTask(prompt: string, options?: ImageGenerationOptions): Promise<{ taskId: string }> {
     if (!this.apiKey) {
       throw new Error('Kie.ai API key not configured')
     }
 
-    console.log(`[Kie.ai] Creating image task for prompt: "${prompt.substring(0, 100)}..."`)
+    const model = options?.model || 'flux-2/pro-text-to-image'
+
+    // Input diferente baseado no modelo
+    const input = model === 'gpt-image/1.5-text-to-image'
+      ? { prompt, aspect_ratio: '1:1', quality: 'medium' }
+      : { prompt, aspect_ratio: '1:1', resolution: '1K' }
+
+    console.log(`[Kie.ai] Creating image task with model "${model}" for prompt: "${prompt.substring(0, 100)}..."`)
 
     const response = await fetch(`${KIE_API_BASE}/jobs/createTask`, {
       method: 'POST',
@@ -50,14 +66,7 @@ export class KieService {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'flux-2/pro-text-to-image',
-        input: {
-          prompt: prompt,
-          aspect_ratio: '1:1',  // Square format (API supported)
-          resolution: '1K'
-        }
-      })
+      body: JSON.stringify({ model, input })
     })
 
     if (!response.ok) {
@@ -219,9 +228,11 @@ export class KieService {
 
   /**
    * Gera imagem e aguarda resultado (convenience method)
+   * @param prompt - Descrição da imagem
+   * @param options - Opções incluindo modelo
    */
-  async generateImage(prompt: string): Promise<string> {
-    const { taskId } = await this.createImageTask(prompt)
+  async generateImage(prompt: string, options?: ImageGenerationOptions): Promise<string> {
+    const { taskId } = await this.createImageTask(prompt, options)
     const tempUrl = await this.waitForTask(taskId)
 
     // Upload to Supabase for permanent URL
@@ -231,14 +242,16 @@ export class KieService {
 
   /**
    * Gera múltiplas imagens em paralelo
+   * @param prompts - Array de prompts
+   * @param options - Opções incluindo modelo
    */
-  async generateImages(prompts: string[]): Promise<(string | null)[]> {
-    console.log(`[Kie.ai] Generating ${prompts.length} images in parallel...`)
+  async generateImages(prompts: string[], options?: ImageGenerationOptions): Promise<(string | null)[]> {
+    console.log(`[Kie.ai] Generating ${prompts.length} images in parallel with model "${options?.model || 'flux-2/pro-text-to-image'}"...`)
 
     // Criar todas as tasks primeiro
     const taskPromises = prompts.map(async (prompt, index) => {
       try {
-        const { taskId } = await this.createImageTask(prompt)
+        const { taskId } = await this.createImageTask(prompt, options)
         return { index, taskId, error: null }
       } catch (error) {
         console.error(`[Kie.ai] Failed to create task for prompt ${index}:`, error)

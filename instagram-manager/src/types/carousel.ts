@@ -1,5 +1,58 @@
 import type { SlideLayoutType } from './template'
 
+// Rich text segment with formatting
+export interface TextSegment {
+  text: string
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  font?: string       // Override de fonte
+  color?: string      // Override de cor
+}
+
+// Helper type for rich text (retrocompatível com string)
+export type RichText = string | TextSegment[]
+
+// Helper para converter string para TextSegment[]
+export function toTextSegments(text: RichText): TextSegment[] {
+  if (typeof text === 'string') {
+    return [{ text }]
+  }
+  return text
+}
+
+// Helper para converter TextSegment[] para string plain
+export function toPlainText(text: RichText): string {
+  if (typeof text === 'string') {
+    return text
+  }
+  return text.map(s => s.text).join('')
+}
+
+// Helper para gerar chave de customPositions isolada por template
+// Formato: "templateId:layoutType" ou apenas "layoutType" se não houver template
+export function getPositionKey(templateId: string | undefined, layoutType: string): string {
+  return templateId ? `${templateId}:${layoutType}` : layoutType
+}
+
+// Helper para buscar customPositions com fallback para chave antiga (compatibilidade)
+export function getLayoutPositions(
+  customPositions: CarouselSlide['customPositions'],
+  templateId: string | undefined,
+  layoutType: string
+) {
+  if (!customPositions) return undefined
+
+  // Primeiro tenta chave nova (template:layout)
+  const newKey = getPositionKey(templateId, layoutType)
+  if (customPositions[newKey]) {
+    return customPositions[newKey]
+  }
+
+  // Fallback para chave antiga (apenas layout) - compatibilidade com dados existentes
+  return customPositions[layoutType]
+}
+
 export interface CarouselSlide {
   id: string
   slideNumber: number
@@ -11,6 +64,7 @@ export interface CarouselSlide {
   gradientColor: string
   gradientOpacity: number
   textColor: string
+  grainIntensity?: number  // 0-100, intensidade da textura granulada
   // Campos para templates
   layoutType?: SlideLayoutType
   highlightWords?: string[]  // Palavras para destacar (sublinhado)
@@ -32,12 +86,20 @@ export interface CarouselSlide {
       // Posição do branding card (apenas slide 1)
       brandingX?: number      // Posição X em % (0-100)
       brandingY?: number      // Posição Y em % (0-100)
+      brandingScale?: number  // Escala do branding (0.5-2.0, 1.0 = 100%)
       // Controle de alinhamento de texto POR LAYOUT (sobrescreve template)
       headlineAlign?: 'left' | 'center' | 'right'
       bodyAlign?: 'left' | 'center' | 'right'
       // Tamanho de fonte POR LAYOUT (sobrescreve template)
       headlineFontSize?: number
       bodyFontSize?: number
+      // Fonte customizada POR LAYOUT
+      headlineFontFamily?: string      // Nome da fonte (ex: "Montserrat")
+      headlineFontWeight?: number      // Peso (400, 500, 600, 700, etc)
+      headlineFontStyle?: 'normal' | 'italic'
+      bodyFontFamily?: string
+      bodyFontWeight?: number
+      bodyFontStyle?: 'normal' | 'italic'
     }
   }
 }
@@ -90,6 +152,7 @@ export const DEFAULT_SLIDE: Omit<CarouselSlide, 'id' | 'slideNumber'> = {
   gradientColor: '#000000',
   gradientOpacity: 1.0,
   textColor: '#FFFFFF',
+  grainIntensity: 0,
   showMockup: true
 }
 

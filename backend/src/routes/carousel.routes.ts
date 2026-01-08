@@ -8,7 +8,11 @@ import {
   parseScriptWithAI,
   uploadImage,
   generateImagePrompts,
-  generateAIImages
+  generateAIImages,
+  saveCarousel,
+  listCarousels,
+  getCarousel,
+  deleteCarousel
 } from '../controllers/carousel.controller.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 
@@ -55,5 +59,19 @@ router.post('/generate-image-prompts', generateImagePrompts)
 
 // POST /api/carousel/generate-ai-images - Generate images via Kie.ai Flux 2 Pro
 router.post('/generate-ai-images', generateAIImages)
+
+// === CRUD para persistência de carrosseis ===
+
+// POST /api/carousel/save - Criar ou atualizar carrossel
+router.post('/save', saveCarousel)
+
+// GET /api/carousel/list - Listar carrosseis do usuário
+router.get('/list', listCarousels)
+
+// GET /api/carousel/:id - Buscar carrossel por ID
+router.get('/:id', getCarousel)
+
+// DELETE /api/carousel/:id - Deletar carrossel
+router.delete('/:id', deleteCarousel)
 
 export default router

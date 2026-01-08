@@ -7,7 +7,7 @@ export interface ParsedSlide {
   layoutType: SlideLayoutType
 }
 
-// Sequência padrão de layouts (baseado no template brands-decoded)
+// Sequência padrão de layouts (baseado no template content-canvas)
 const DEFAULT_LAYOUT_SEQUENCE: SlideLayoutType[] = [
   'cover',      // Slide 1
   'imageTop',   // Slide 2

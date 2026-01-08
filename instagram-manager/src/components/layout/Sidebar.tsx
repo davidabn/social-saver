@@ -15,6 +15,7 @@ const filterItems = [
 const navItems = [
   { icon: <Grid className="h-4 w-4" />, label: 'Dashboard', path: '/dashboard' },
   { icon: <PenTool className="h-4 w-4" />, label: 'Design Carousel', path: '/carousel' },
+  { icon: <Layers className="h-4 w-4" />, label: 'Meus Carrosséis', path: '/my-carousels' },
   { icon: <Bookmark className="h-4 w-4" />, label: 'Colecoes', path: '/collections' },
   { icon: <Rss className="h-4 w-4" />, label: 'Feed', path: '/feed' },
   { icon: <User className="h-4 w-4" />, label: 'Persona', path: '/persona' },

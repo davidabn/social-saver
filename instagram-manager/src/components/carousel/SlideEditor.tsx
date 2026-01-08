@@ -1,12 +1,15 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Palette, Upload, Loader2, Eye, EyeOff, Wand2, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
+import { Search, Palette, Upload, Loader2, Eye, EyeOff, Wand2, AlignLeft, AlignCenter, AlignRight, Type } from 'lucide-react'
 import type { CarouselSlide } from '@/types/carousel'
+import { getPositionKey, getLayoutPositions } from '@/types/carousel'
 import type { CarouselTemplate, SlideLayoutType } from '@/types/template'
 import { LayoutSelector } from './LayoutSelector'
+import { FontSelectorCompact } from './FontSelector'
 import { useUploadImage, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
+import { htmlToPlainText } from '@/templates/renderers/base'
 
 interface SlideEditorProps {
   slide: CarouselSlide
@@ -15,6 +18,8 @@ interface SlideEditorProps {
   isSearching?: boolean
   template?: CarouselTemplate
   theme?: string  // Tema do carrossel para gerar imagens
+  isGeneratingImage?: boolean
+  onGeneratingChange?: (isGenerating: boolean) => void
 }
 
 export function SlideEditor({
@@ -23,24 +28,26 @@ export function SlideEditor({
   onSearchImages,
   isSearching = false,
   template,
-  theme = ''
+  theme = '',
+  isGeneratingImage = false,
+  onGeneratingChange
 }: SlideEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadImage = useUploadImage()
   const generateImagePrompts = useGenerateImagePrompts()
   const generateAIImages = useGenerateAIImages()
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
 
   const handleGenerateAIImage = async () => {
     if (!slide.headline && !slide.body) return
 
-    setIsGeneratingImage(true)
+    onGeneratingChange?.(true)
 
     try {
       // Generate prompt for this slide
       const prompts = await generateImagePrompts.mutateAsync({
         slides: [{ headline: slide.headline, body: slide.body }],
-        theme: theme || 'professional content'
+        theme: theme || 'professional content',
+        templateId: template?.id
       })
 
       if (prompts.length === 0) {
@@ -49,7 +56,8 @@ export function SlideEditor({
 
       // Generate image from prompt
       const result = await generateAIImages.mutateAsync({
-        prompts: [{ slideIndex: 0, prompt: prompts[0].prompt }]
+        prompts: [{ slideIndex: 0, prompt: prompts[0].prompt }],
+        templateId: template?.id
       })
 
       if (result.images.length > 0) {
@@ -60,7 +68,7 @@ export function SlideEditor({
     } catch (error) {
       console.error('Failed to generate AI image:', error)
     } finally {
-      setIsGeneratingImage(false)
+      onGeneratingChange?.(false)
     }
   }
 
@@ -97,7 +105,7 @@ export function SlideEditor({
         <Label htmlFor="headline">Headline</Label>
         <textarea
           id="headline"
-          value={slide.headline}
+          value={htmlToPlainText(slide.headline)}
           onChange={(e) => onUpdate({ headline: e.target.value })}
           placeholder="Titulo impactante..."
           className="w-full min-h-[60px] px-3 py-2 text-sm font-semibold rounded-md border border-input bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
@@ -109,7 +117,7 @@ export function SlideEditor({
         <Label htmlFor="body">Texto</Label>
         <textarea
           id="body"
-          value={slide.body}
+          value={htmlToPlainText(slide.body)}
           onChange={(e) => onUpdate({ body: e.target.value })}
           placeholder="Texto de apoio..."
           className="w-full min-h-[100px] px-3 py-2 text-sm rounded-md border border-input bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
@@ -289,6 +297,66 @@ export function SlideEditor({
         />
       </div>
 
+      {/* Grain texture control */}
+      <div className="space-y-2 pt-2 border-t">
+        <Label htmlFor="grainIntensity" className="text-xs">
+          Textura (Grain): {slide.grainIntensity || 0}%
+        </Label>
+        <input
+          type="range"
+          id="grainIntensity"
+          min="0"
+          max="100"
+          step="5"
+          value={slide.grainIntensity || 0}
+          onChange={(e) => onUpdate({ grainIntensity: parseInt(e.target.value) })}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+        />
+        <p className="text-xs text-muted-foreground">
+          Adiciona textura granulada ao fundo
+        </p>
+      </div>
+
+      {/* Branding scale control (only slide 1 with cover layout) */}
+      {slide.slideNumber === 1 && (slide.layoutType === 'cover' || !slide.layoutType) && (
+        <div className="space-y-2 pt-2 border-t">
+          {(() => {
+            const currentLayout = slide.layoutType || 'cover'
+            const positionKey = getPositionKey(template?.id, currentLayout)
+            const layoutPositions = getLayoutPositions(slide.customPositions, template?.id, currentLayout)
+            const brandingScale = layoutPositions?.brandingScale ?? 1.0
+            return (
+              <>
+                <Label htmlFor="brandingScale" className="text-xs">
+                  Tamanho do Branding: {Math.round(brandingScale * 100)}%
+                </Label>
+                <input
+                  type="range"
+                  id="brandingScale"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  value={brandingScale}
+                  onChange={(e) => onUpdate({
+                    customPositions: {
+                      ...slide.customPositions,
+                      [positionKey]: {
+                        ...layoutPositions,
+                        brandingScale: parseFloat(e.target.value)
+                      }
+                    }
+                  })}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Escala do avatar, nome e username
+                </p>
+              </>
+            )
+          })()}
+        </div>
+      )}
+
       {/* Font size controls */}
       <div className="space-y-3 pt-2 border-t">
         <span className="text-xs font-medium">Tamanho das Fontes</span>
@@ -296,7 +364,9 @@ export function SlideEditor({
         <div className="space-y-2">
           {(() => {
             const currentLayout = slide.layoutType || 'cover'
-            const layoutHeadlineSize = slide.customPositions?.[currentLayout]?.headlineFontSize
+            const positionKey = getPositionKey(template?.id, currentLayout)
+            const layoutPositions = getLayoutPositions(slide.customPositions, template?.id, currentLayout)
+            const layoutHeadlineSize = layoutPositions?.headlineFontSize
             const displaySize = layoutHeadlineSize ?? slide.headlineFontSize ?? template?.typography.headlineAltSize ?? 72
             return (
               <>
@@ -313,8 +383,8 @@ export function SlideEditor({
                   onChange={(e) => onUpdate({
                     customPositions: {
                       ...slide.customPositions,
-                      [currentLayout]: {
-                        ...slide.customPositions?.[currentLayout],
+                      [positionKey]: {
+                        ...layoutPositions,
                         headlineFontSize: parseInt(e.target.value)
                       }
                     }
@@ -329,7 +399,9 @@ export function SlideEditor({
         <div className="space-y-2">
           {(() => {
             const currentLayout = slide.layoutType || 'cover'
-            const layoutBodySize = slide.customPositions?.[currentLayout]?.bodyFontSize
+            const positionKey = getPositionKey(template?.id, currentLayout)
+            const layoutPositions = getLayoutPositions(slide.customPositions, template?.id, currentLayout)
+            const layoutBodySize = layoutPositions?.bodyFontSize
             const displaySize = layoutBodySize ?? slide.bodyFontSize ?? template?.typography.bodySize ?? 30
             return (
               <>
@@ -346,8 +418,8 @@ export function SlideEditor({
                   onChange={(e) => onUpdate({
                     customPositions: {
                       ...slide.customPositions,
-                      [currentLayout]: {
-                        ...slide.customPositions?.[currentLayout],
+                      [positionKey]: {
+                        ...layoutPositions,
                         bodyFontSize: parseInt(e.target.value)
                       }
                     }
@@ -360,6 +432,62 @@ export function SlideEditor({
         </div>
       </div>
 
+      {/* Font selection controls */}
+      <div className="space-y-3 pt-2 border-t">
+        <div className="flex items-center gap-1">
+          <Type className="h-3 w-3 text-muted-foreground" />
+          <span className="text-xs font-medium">Fontes</span>
+        </div>
+
+        {(() => {
+          const currentLayout = slide.layoutType || 'cover'
+          const positionKey = getPositionKey(template?.id, currentLayout)
+          const layoutPositions = getLayoutPositions(slide.customPositions, template?.id, currentLayout)
+
+          const updateLayoutFont = (key: string, value: string | number) => {
+            onUpdate({
+              customPositions: {
+                ...slide.customPositions,
+                [positionKey]: {
+                  ...layoutPositions,
+                  [key]: value
+                }
+              }
+            })
+          }
+
+          return (
+            <>
+              <FontSelectorCompact
+                label="Headline"
+                selectedFont={layoutPositions?.headlineFontFamily}
+                selectedWeight={layoutPositions?.headlineFontWeight}
+                selectedStyle={layoutPositions?.headlineFontStyle}
+                onFontChange={(font) => updateLayoutFont('headlineFontFamily', font)}
+                onWeightChange={(weight) => updateLayoutFont('headlineFontWeight', weight)}
+                onStyleChange={(style) => updateLayoutFont('headlineFontStyle', style)}
+                defaultFont={template?.typography.headlineFont?.split(',')[0]?.replace(/"/g, '').trim() || 'Georgia'}
+                defaultWeight={400}
+                defaultStyle="italic"
+              />
+
+              <FontSelectorCompact
+                label="Texto"
+                selectedFont={layoutPositions?.bodyFontFamily}
+                selectedWeight={layoutPositions?.bodyFontWeight}
+                selectedStyle={layoutPositions?.bodyFontStyle}
+                onFontChange={(font) => updateLayoutFont('bodyFontFamily', font)}
+                onWeightChange={(weight) => updateLayoutFont('bodyFontWeight', weight)}
+                onStyleChange={(style) => updateLayoutFont('bodyFontStyle', style)}
+                defaultFont="Arial"
+                defaultWeight={400}
+                defaultStyle="normal"
+              />
+            </>
+          )
+        })()}
+      </div>
+
       {/* Text alignment controls */}
       <div className="space-y-3 pt-2 border-t">
         <span className="text-xs font-medium">Alinhamento do Texto</span>
@@ -369,7 +497,9 @@ export function SlideEditor({
           <div className="flex gap-1">
             {(['left', 'center', 'right'] as const).map((align) => {
               const currentLayout = slide.layoutType || 'cover'
-              const currentAlign = slide.customPositions?.[currentLayout]?.headlineAlign
+              const positionKey = getPositionKey(template?.id, currentLayout)
+              const layoutPositions = getLayoutPositions(slide.customPositions, template?.id, currentLayout)
+              const currentAlign = layoutPositions?.headlineAlign
               const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight
               return (
                 <Button
@@ -379,8 +509,8 @@ export function SlideEditor({
                   onClick={() => onUpdate({
                     customPositions: {
                       ...slide.customPositions,
-                      [currentLayout]: {
-                        ...slide.customPositions?.[currentLayout],
+                      [positionKey]: {
+                        ...layoutPositions,
                         headlineAlign: align
                       }
                     }
@@ -400,7 +530,9 @@ export function SlideEditor({
           <div className="flex gap-1">
             {(['left', 'center', 'right'] as const).map((align) => {
               const currentLayout = slide.layoutType || 'cover'
-              const currentAlign = slide.customPositions?.[currentLayout]?.bodyAlign
+              const positionKey = getPositionKey(template?.id, currentLayout)
+              const layoutPositions = getLayoutPositions(slide.customPositions, template?.id, currentLayout)
+              const currentAlign = layoutPositions?.bodyAlign
               const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight
               return (
                 <Button
@@ -410,8 +542,8 @@ export function SlideEditor({
                   onClick={() => onUpdate({
                     customPositions: {
                       ...slide.customPositions,
-                      [currentLayout]: {
-                        ...slide.customPositions?.[currentLayout],
+                      [positionKey]: {
+                        ...layoutPositions,
                         bodyAlign: align
                       }
                     }

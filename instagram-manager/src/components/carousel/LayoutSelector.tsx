@@ -8,7 +8,10 @@ interface LayoutSelectorProps {
 }
 
 export function LayoutSelector({ template, value, onChange }: LayoutSelectorProps) {
-  const layouts = Object.entries(template.layouts)
+  // Filtra para mostrar apenas layouts da sequência padrão do template
+  const layouts = Object.entries(template.layouts).filter(
+    ([key]) => template.defaultLayoutSequence.includes(key as SlideLayoutType)
+  )
 
   return (
     <div className="space-y-2">

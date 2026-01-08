@@ -5,6 +5,8 @@ import { supabaseAdmin } from '../lib/supabase.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { perplexityService } from '../services/perplexity.service.js'
 import { kieService } from '../services/kie.service.js'
+import { IMAGE_PROMPT_ENGINEER_SYSTEM } from '../prompts/image-prompt-engineer.js'
+import { HAND_DRAWN_IMAGE_PROMPT_SYSTEM } from '../prompts/hand-drawn-prompt.js'
 import OpenAI from 'openai'
 
 // Schemas
@@ -35,14 +37,16 @@ const generateImagePromptsSchema = z.object({
     headline: z.string(),
     body: z.string()
   })),
-  theme: z.string().min(1)
+  theme: z.string().min(1),
+  templateId: z.string().optional()  // Para selecionar system prompt específico
 })
 
 const generateAIImagesSchema = z.object({
   prompts: z.array(z.object({
     slideIndex: z.number().int().min(0),
     prompt: z.string().min(1)
-  }))
+  })),
+  templateId: z.string().optional()  // Para selecionar modelo de imagem
 })
 
 // Initialize OpenAI
@@ -491,7 +495,7 @@ export async function uploadImage(
 }
 
 // POST /api/carousel/generate-image-prompts
-// Uses GPT-4o to create image generation prompts based on slide content
+// Uses GPT-4o with Elite Prompt Engineer to create high-quality image generation prompts
 export async function generateImagePrompts(
   req: AuthenticatedRequest,
   res: Response,
@@ -503,45 +507,50 @@ export async function generateImagePrompts(
 
     if (!openai) throw new AppError('OpenAI API key not configured', 500)
 
-    const { slides, theme } = generateImagePromptsSchema.parse(req.body)
+    const { slides, theme, templateId } = generateImagePromptsSchema.parse(req.body)
 
-    console.log(`[Carousel] Generating image prompts for ${slides.length} slides, theme: "${theme}"`)
+    // Selecionar system prompt baseado no template
+    const systemPrompt = templateId === 'hand-drawn'
+      ? HAND_DRAWN_IMAGE_PROMPT_SYSTEM
+      : IMAGE_PROMPT_ENGINEER_SYSTEM
 
-    const systemPrompt = `You are an expert at creating prompts for AI image generation (Flux 2 Pro).
-Your task is to create visually compelling prompts in English for each carousel slide.
+    console.log(`[Carousel] Generating elite image prompts for ${slides.length} slides, theme: "${theme}", template: "${templateId || 'default'}"`)
 
-Guidelines for prompts:
-- Capture the essence and emotion of the slide content
-- Be visually impactful and professional
-- Be coherent with the overall carousel theme
-- Use photography/art terminology (lighting, composition, style, mood)
-- DO NOT include any text or typography in the image
-- Prefer realistic photography or clean minimalist illustrations
-- Keep prompts between 50-150 words
-- Include specific details about colors, lighting, and atmosphere
-- Make each image unique but cohesive with the series`
-
+    // Formatar o script do carrossel de forma estruturada para o assistente elite
     const slidesDescription = slides.map((slide, index) =>
-      `Slide ${index + 1}:\n- Headline: "${slide.headline}"\n- Body: "${slide.body}"`
+      `**SLIDE ${index + 1}:**
+- Título/Headline: "${slide.headline}"
+- Texto/Body: "${slide.body}"`
     ).join('\n\n')
 
-    const userPrompt = `Theme of the carousel: "${theme}"
+    const userPrompt = `## Script do Carrossel
+
+**Tema/Tópico:** ${theme}
+**Total de Slides:** ${slides.length}
+
+### Conteúdo dos Slides:
 
 ${slidesDescription}
 
-Create an image generation prompt for each slide. The images should:
-1. Work together as a cohesive visual series
-2. Reinforce the message of each slide
-3. Be suitable for Instagram carousel (4:5 vertical format)
-4. NOT contain any text, words, or typography
+---
 
-Return ONLY a JSON array with the prompts:
+Analise este carrossel estrategicamente e gere prompts de imagem otimizados para cada slide.
+
+REQUISITOS TÉCNICOS:
+1. Os prompts devem ser em INGLÊS
+2. NÃO inclua texto, palavras ou tipografia nas imagens
+3. Formato da imagem: 4:5 vertical (Instagram carousel)
+4. Mantenha coesão visual entre todos os slides
+5. Use terminologia técnica de fotografia/cinema
+
+FORMATO DE RESPOSTA:
+Retorne APENAS um JSON array com os prompts, sem texto adicional:
 [
-  { "slideIndex": 0, "prompt": "detailed image prompt here..." },
-  { "slideIndex": 1, "prompt": "detailed image prompt here..." }
+  { "slideIndex": 0, "prompt": "detailed technical prompt in English..." },
+  { "slideIndex": 1, "prompt": "detailed technical prompt in English..." }
 ]
 
-Return ONLY the JSON array, no other text.`
+IMPORTANTE: Retorne APENAS o JSON array, nenhum outro texto ou análise.`
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -550,13 +559,15 @@ Return ONLY the JSON array, no other text.`
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 3000
+      max_tokens: 4000
     })
 
     const content = response.choices[0]?.message?.content || '[]'
 
     try {
       let cleanContent = content.trim()
+
+      // Remove markdown code blocks se presentes
       if (cleanContent.startsWith('```json')) {
         cleanContent = cleanContent.slice(7)
       } else if (cleanContent.startsWith('```')) {
@@ -567,9 +578,15 @@ Return ONLY the JSON array, no other text.`
       }
       cleanContent = cleanContent.trim()
 
+      // Tenta encontrar o JSON array se houver texto antes
+      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        cleanContent = jsonMatch[0]
+      }
+
       const prompts = JSON.parse(cleanContent)
 
-      console.log(`[Carousel] Generated ${prompts.length} image prompts`)
+      console.log(`[Carousel] Generated ${prompts.length} elite image prompts`)
 
       res.json({ prompts })
     } catch (parseError) {
@@ -582,7 +599,7 @@ Return ONLY the JSON array, no other text.`
 }
 
 // POST /api/carousel/generate-ai-images
-// Sends prompts to Kie.ai Flux 2 Pro and returns generated image URLs
+// Sends prompts to Kie.ai (Flux 2 Pro or GPT Image 1.5) and returns generated image URLs
 export async function generateAIImages(
   req: AuthenticatedRequest,
   res: Response,
@@ -592,15 +609,20 @@ export async function generateAIImages(
     const userId = req.user?.id
     if (!userId) throw new AppError('User not authenticated', 401)
 
-    const { prompts } = generateAIImagesSchema.parse(req.body)
+    const { prompts, templateId } = generateAIImagesSchema.parse(req.body)
 
-    console.log(`[Carousel] Generating ${prompts.length} AI images via Kie.ai...`)
+    // Selecionar modelo baseado no template
+    const model = templateId === 'hand-drawn'
+      ? 'gpt-image/1.5-text-to-image' as const
+      : 'flux-2/pro-text-to-image' as const
+
+    console.log(`[Carousel] Generating ${prompts.length} AI images via Kie.ai with model "${model}"...`)
 
     // Generate all images in parallel
     const imagePromises = prompts.map(async ({ slideIndex, prompt }) => {
       try {
         console.log(`[Carousel] Generating image for slide ${slideIndex}...`)
-        const imageUrl = await kieService.generateImage(prompt)
+        const imageUrl = await kieService.generateImage(prompt, { model })
         return { slideIndex, imageUrl, error: null }
       } catch (error) {
         console.error(`[Carousel] Failed to generate image for slide ${slideIndex}:`, error)
@@ -625,6 +647,173 @@ export async function generateAIImages(
     console.log(`[Carousel] AI image generation complete: ${successCount} success, ${errorCount} failed`)
 
     res.json({ images, errors, successCount, errorCount })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ===============================================
+// CRUD para persistência de carrosseis
+// ===============================================
+
+const saveCarouselSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(1).default('Sem título'),
+  data: z.object({
+    design: z.any(),
+    headerTexts: z.any(),
+    templateId: z.string().nullable(),
+    customPalette: z.any()
+  })
+})
+
+// POST /api/carousel/save - Criar ou atualizar carrossel
+export async function saveCarousel(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    const { id, name, data } = saveCarouselSchema.parse(req.body)
+
+    console.log(`[Carousel] Saving carousel for user ${userId}, id: ${id || 'new'}`)
+
+    let result
+
+    if (id) {
+      // Update existing carousel
+      const { data: carousel, error } = await supabaseAdmin
+        .from('carousels')
+        .update({ name, data })
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('[Carousel] Update error:', error)
+        throw new AppError('Failed to update carousel', 500)
+      }
+
+      result = carousel
+    } else {
+      // Create new carousel
+      const { data: carousel, error } = await supabaseAdmin
+        .from('carousels')
+        .insert({ user_id: userId, name, data })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('[Carousel] Insert error:', error)
+        throw new AppError('Failed to create carousel', 500)
+      }
+
+      result = carousel
+    }
+
+    console.log(`[Carousel] Carousel saved successfully: ${result.id}`)
+    res.json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+// GET /api/carousel/list - Listar carrosseis do usuário
+export async function listCarousels(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    console.log(`[Carousel] Listing carousels for user ${userId}`)
+
+    const { data: carousels, error } = await supabaseAdmin
+      .from('carousels')
+      .select('id, name, updated_at, created_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+
+    if (error) {
+      console.error('[Carousel] List error:', error)
+      throw new AppError('Failed to list carousels', 500)
+    }
+
+    console.log(`[Carousel] Found ${carousels?.length || 0} carousels`)
+    res.json(carousels || [])
+  } catch (error) {
+    next(error)
+  }
+}
+
+// GET /api/carousel/:id - Buscar carrossel por ID
+export async function getCarousel(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    const { id } = req.params
+    if (!id) throw new AppError('Carousel ID required', 400)
+
+    console.log(`[Carousel] Getting carousel ${id} for user ${userId}`)
+
+    const { data: carousel, error } = await supabaseAdmin
+      .from('carousels')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single()
+
+    if (error || !carousel) {
+      console.error('[Carousel] Get error:', error)
+      throw new AppError('Carousel not found', 404)
+    }
+
+    console.log(`[Carousel] Found carousel: ${carousel.name}`)
+    res.json(carousel)
+  } catch (error) {
+    next(error)
+  }
+}
+
+// DELETE /api/carousel/:id - Deletar carrossel
+export async function deleteCarousel(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    const { id } = req.params
+    if (!id) throw new AppError('Carousel ID required', 400)
+
+    console.log(`[Carousel] Deleting carousel ${id} for user ${userId}`)
+
+    const { error } = await supabaseAdmin
+      .from('carousels')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
+
+    if (error) {
+      console.error('[Carousel] Delete error:', error)
+      throw new AppError('Failed to delete carousel', 500)
+    }
+
+    console.log(`[Carousel] Carousel deleted successfully`)
+    res.json({ success: true })
   } catch (error) {
     next(error)
   }

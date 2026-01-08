@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Dialog,
   DialogContent,
@@ -24,15 +25,20 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Palette
 } from 'lucide-react'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
+
+import type { FeedItem } from '@/types'
 
 interface ContentDetailModalProps {
   contentId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  feedItem?: FeedItem | null
+  onFeedItemSaved?: () => void
 }
 
 const API_URL = 'http://localhost:3001/api'
@@ -58,7 +64,8 @@ function formatNumber(num: number | null | undefined): string {
   return num.toString()
 }
 
-export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDetailModalProps) {
+export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _feedItem, onFeedItemSaved: _onFeedItemSaved }: ContentDetailModalProps) {
+  const navigate = useNavigate()
   const { data: content, isLoading, error } = useContent(contentId)
   const generateContent = useGenerateContent()
   const [copied, setCopied] = useState(false)
@@ -94,6 +101,17 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
       await navigator.clipboard.writeText(generatedScript)
       setScriptCopied(true)
       setTimeout(() => setScriptCopied(false), 2000)
+    }
+  }
+
+  const handleGenerateDesign = () => {
+    if (generatedScript && content?.id) {
+      navigate('/carousel', {
+        state: {
+          script: generatedScript,
+          contentId: content.id
+        }
+      })
     }
   }
 
@@ -484,6 +502,17 @@ export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDet
                       <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
                         <p className="text-sm whitespace-pre-wrap">{generatedScript}</p>
                       </div>
+                      {/* Botão Gerar Design - apenas para carousel */}
+                      {scriptType === 'carousel' && (
+                        <Button
+                          onClick={handleGenerateDesign}
+                          className="w-full gap-2 mt-3"
+                          variant="secondary"
+                        >
+                          <Palette className="h-4 w-4" />
+                          Gerar Design do Carrossel
+                        </Button>
+                      )}
                     </div>
                   )}
 

@@ -351,8 +351,32 @@ Cada roteiro seu é uma obra-prima de psicologia comportamental aplicada ao form
       userPrompt += `Tarefa: Crie um roteiro viral de reel baseado no conteúdo acima.
 Siga o processo de trabalho completo e gere o output no formato especificado.`
     } else if (targetType === 'carousel') {
-      userPrompt += `Task: Generate a ${targetType} based on the above content, tailored to my persona.`
-      userPrompt += `\nFormat: Provide 5-7 slides. For each slide, provide a 'Headline' and 'Body'.`
+      userPrompt += `Tarefa: Crie um roteiro de carrossel baseado no conteúdo acima, adaptado para minha persona.
+
+FORMATO OBRIGATÓRIO - Siga EXATAMENTE este formato:
+
+**SLIDE 1 (Capa)**
+[Headline impactante - frase curta que chama atenção]
+[Body - texto complementar de 1-2 linhas]
+
+**SLIDE 2**
+[Headline do slide 2]
+[Body do slide 2 - pode ter múltiplas linhas]
+
+**SLIDE 3**
+[Headline do slide 3]
+[Body do slide 3]
+
+... (continue até SLIDE 7)
+
+REGRAS:
+- Use EXATAMENTE o formato **SLIDE N** para cada slide
+- Slide 1 deve ser a capa com headline chamativo
+- Slides 2-6 desenvolvem o conteúdo
+- Último slide deve ter CTA (call-to-action)
+- Headlines curtos e impactantes (máx 8 palavras)
+- Body pode ter 1-4 linhas por slide
+- Gere entre 5 e 7 slides no total`
     } else {
       userPrompt += `Task: Generate a ${targetType} based on the above content, tailored to my persona.`
       userPrompt += `\nFormat: Provide a catchy caption with hashtags.`

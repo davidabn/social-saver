@@ -154,6 +154,7 @@ async function parseScriptWithAI(input: ParseScriptInput): Promise<ParsedSlideFr
 interface GenerateImagePromptsInput {
   slides: { headline: string; body: string }[]
   theme: string
+  templateId?: string  // Template para usar system prompt específico
 }
 
 interface ImagePrompt {
@@ -166,7 +167,11 @@ async function generateImagePrompts(input: GenerateImagePromptsInput): Promise<I
   const response = await fetch(`${API_URL}/carousel/generate-image-prompts`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(input)
+    body: JSON.stringify({
+      slides: input.slides,
+      theme: input.theme,
+      templateId: input.templateId
+    })
   })
 
   if (!response.ok) {
@@ -178,9 +183,10 @@ async function generateImagePrompts(input: GenerateImagePromptsInput): Promise<I
   return data.prompts
 }
 
-// Generate AI images via Kie.ai Flux 2 Pro
+// Generate AI images via Kie.ai (Flux 2 Pro or GPT Image 1.5)
 interface GenerateAIImagesInput {
   prompts: { slideIndex: number; prompt: string }[]
+  templateId?: string  // Para selecionar modelo de imagem
 }
 
 interface GeneratedImage {
@@ -200,7 +206,10 @@ async function generateAIImages(input: GenerateAIImagesInput): Promise<GenerateA
   const response = await fetch(`${API_URL}/carousel/generate-ai-images`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(input)
+    body: JSON.stringify({
+      prompts: input.prompts,
+      templateId: input.templateId
+    })
   })
 
   if (!response.ok) {

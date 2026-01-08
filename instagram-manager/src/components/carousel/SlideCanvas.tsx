@@ -2,8 +2,24 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import type { CarouselSlide, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import type { ColorPalette } from '@/templates/palettes'
-import { CANVAS_WIDTH, CANVAS_HEIGHT, PREVIEW_SCALE } from '@/types/carousel'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, PREVIEW_SCALE, getPositionKey, getLayoutPositions } from '@/types/carousel'
 import { renderSlideWithTemplate } from '@/templates/renderers'
+import { InlineTextEditor } from './InlineTextEditor'
+
+// Estado da edição inline
+interface InlineEditState {
+  element: 'headline' | 'body'
+  position: ElementBounds
+  style: {
+    fontSize: number
+    fontFamily: string
+    fontWeight: number | string
+    fontStyle: 'normal' | 'italic'
+    color: string
+    textAlign: 'left' | 'center' | 'right'
+    lineHeight: number
+  }
+}
 
 const API_URL = 'http://localhost:3001/api'
 
@@ -59,8 +75,10 @@ interface SlideCanvasProps {
   customPalette?: ColorPalette
   isPreview?: boolean
   scale?: number
+  isGenerating?: boolean
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
   onPositionChange?: (updates: Partial<CarouselSlide>) => void
+  onTextChange?: (field: 'headline' | 'body', value: string) => void
 }
 
 export function SlideCanvas({
@@ -72,14 +90,17 @@ export function SlideCanvas({
   customPalette,
   isPreview = true,
   scale = PREVIEW_SCALE,
+  isGenerating = false,
   onCanvasReady,
-  onPositionChange
+  onPositionChange,
+  onTextChange
 }: SlideCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [elementBounds, setElementBounds] = useState<ElementBounds[]>([])
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [hoveredElement, setHoveredElement] = useState<DraggableElement | null>(null)
   const [isAltPressed, setIsAltPressed] = useState(false)
+  const [inlineEditState, setInlineEditState] = useState<InlineEditState | null>(null)
 
   // Rastrear tecla Alt
   useEffect(() => {
@@ -97,6 +118,11 @@ export function SlideCanvas({
     }
   }, [])
 
+  // Refs para evitar re-renders desnecessários
+  const prevCanvasSizeRef = useRef({ width: 0, height: 0, dpr: 1 })
+  const onCanvasReadyRef = useRef(onCanvasReady)
+  onCanvasReadyRef.current = onCanvasReady
+
   // Renderiza o slide e calcula bounds dos elementos
   useEffect(() => {
     const canvas = canvasRef.current
@@ -105,16 +131,32 @@ export function SlideCanvas({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Set canvas size
-    const width = isPreview ? CANVAS_WIDTH * scale : CANVAS_WIDTH
-    const height = isPreview ? CANVAS_HEIGHT * scale : CANVAS_HEIGHT
-    canvas.width = width
-    canvas.height = height
+    // Set canvas size with high DPI support for crisp rendering
+    const dpr = window.devicePixelRatio || 1
+    const displayWidth = isPreview ? CANVAS_WIDTH * scale : CANVAS_WIDTH
+    const displayHeight = isPreview ? CANVAS_HEIGHT * scale : CANVAS_HEIGHT
+    const targetWidth = displayWidth * dpr
+    const targetHeight = displayHeight * dpr
 
-    // Scale context for preview
-    if (isPreview) {
-      ctx.scale(scale, scale)
+    // Só recalcula dimensões se realmente mudaram (evita limpar canvas desnecessariamente)
+    const sizeChanged = prevCanvasSizeRef.current.width !== targetWidth ||
+                        prevCanvasSizeRef.current.height !== targetHeight ||
+                        prevCanvasSizeRef.current.dpr !== dpr
+
+    if (sizeChanged) {
+      canvas.width = targetWidth
+      canvas.height = targetHeight
+      canvas.style.width = `${displayWidth}px`
+      canvas.style.height = `${displayHeight}px`
+      prevCanvasSizeRef.current = { width: targetWidth, height: targetHeight, dpr }
     }
+
+    // Limpa o canvas antes de redesenhar
+    ctx.setTransform(1, 0, 0, 1, 0, 0) // Reset transform
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    // Scale context for high DPI + preview scale
+    ctx.scale(dpr * (isPreview ? scale : 1), dpr * (isPreview ? scale : 1))
 
     // Se tiver template, usa o sistema de renderização de templates
     if (template && headerTexts) {
@@ -124,19 +166,19 @@ export function SlideCanvas({
           const bounds = calculateElementBounds(slide, template, headerTexts)
           setElementBounds(bounds)
 
-          if (onCanvasReady) {
-            onCanvasReady(canvas)
+          if (onCanvasReadyRef.current) {
+            onCanvasReadyRef.current(canvas)
           }
         })
         .catch((error) => {
           console.error('Failed to render slide with template:', error)
-          renderDefaultSlide(ctx, slide, brandingText, onCanvasReady ? () => onCanvasReady(canvas) : undefined)
+          renderDefaultSlide(ctx, slide, brandingText, onCanvasReadyRef.current ? () => onCanvasReadyRef.current!(canvas) : undefined)
         })
     } else {
-      renderDefaultSlide(ctx, slide, brandingText, onCanvasReady ? () => onCanvasReady(canvas) : undefined)
+      renderDefaultSlide(ctx, slide, brandingText, onCanvasReadyRef.current ? () => onCanvasReadyRef.current!(canvas) : undefined)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slide, brandingText, template, headerTexts, profileBranding, customPalette, isPreview, scale, onCanvasReady])
+  }, [slide, brandingText, template, headerTexts, profileBranding, customPalette, isPreview, scale])
 
   // Calcula bounds dos elementos arrastáveis
   const calculateElementBounds = useCallback((
@@ -151,40 +193,55 @@ export function SlideCanvas({
 
     const headerOffset = template.header.enabled ? template.header.height : 0
 
-    // Pega posições customizadas do layout atual
-    const layoutPositions = slide.customPositions?.[layoutType]
+    // Pega posições customizadas do layout atual (com chave composta template:layout)
+    const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
 
-    // Headline bounds
-    const headlineY = layoutPositions?.headlineY !== undefined
-      ? (layoutPositions.headlineY / 100) * CANVAS_HEIGHT
-      : (layout.headlineArea.y / 100) * CANVAS_HEIGHT + (layoutType !== 'cover' && layoutType !== 'fullImage' ? headerOffset : 0)
+    // Headline bounds - com padding extra para facilitar seleção
+    let headlineY: number
+    if (layoutPositions?.headlineY !== undefined) {
+      headlineY = (layoutPositions.headlineY / 100) * CANVAS_HEIGHT
+    } else if (layoutType === 'imageTop') {
+      // Para layout imageTop, o headline fica 100px abaixo da imagem (mesma lógica do renderer)
+      const imgYPos = layoutPositions?.imageY !== undefined
+        ? (layoutPositions.imageY / 100) * CANVAS_HEIGHT
+        : ((layout.imageArea?.y ?? 0) / 100) * CANVAS_HEIGHT + headerOffset
+      const imgHeightVal = layoutPositions?.imageHeight !== undefined
+        ? (layoutPositions.imageHeight / 100) * CANVAS_HEIGHT
+        : ((layout.imageArea?.height || 50) / 100) * CANVAS_HEIGHT
+      headlineY = imgYPos + imgHeightVal + 100
+    } else {
+      headlineY = (layout.headlineArea.y / 100) * CANVAS_HEIGHT + (layoutType !== 'cover' && layoutType !== 'fullImage' ? headerOffset : 0)
+    }
 
+    const hitPadding = 30 // Padding extra para facilitar hit detection
     bounds.push({
       element: 'headline',
-      x: (layout.headlineArea.x / 100) * CANVAS_WIDTH,
-      y: headlineY,
-      width: (layout.headlineArea.width / 100) * CANVAS_WIDTH,
-      height: 150, // Altura aproximada do texto
+      x: (layout.headlineArea.x / 100) * CANVAS_WIDTH - hitPadding,
+      y: headlineY - hitPadding,
+      width: (layout.headlineArea.width / 100) * CANVAS_WIDTH + hitPadding * 2,
+      height: 220, // Altura mais generosa (era 150)
       currentYPercent: layoutPositions?.headlineY ?? layout.headlineArea.y
     })
 
-    // Body bounds
+    // Body bounds - com padding extra para facilitar seleção
     const bodyY = layoutPositions?.bodyY !== undefined
       ? (layoutPositions.bodyY / 100) * CANVAS_HEIGHT
       : (layout.bodyArea.y / 100) * CANVAS_HEIGHT
 
     bounds.push({
       element: 'body',
-      x: (layout.bodyArea.x / 100) * CANVAS_WIDTH,
-      y: bodyY,
-      width: (layout.bodyArea.width / 100) * CANVAS_WIDTH,
-      height: 100,
+      x: (layout.bodyArea.x / 100) * CANVAS_WIDTH - hitPadding,
+      y: bodyY - hitPadding,
+      width: (layout.bodyArea.width / 100) * CANVAS_WIDTH + hitPadding * 2,
+      height: 180, // Altura mais generosa (era 100)
       currentYPercent: layoutPositions?.bodyY ?? layout.bodyArea.y
     })
 
     // Image bounds (para todos os layouts que suportam imagem)
     if (layout.imageArea && slide.imageUrl) {
+      let imageX: number = 0
       let imageY: number
+      let imageWidth: number = CANVAS_WIDTH
       let imageHeight: number
 
       if (layoutType === 'cover' || layoutType === 'fullImage') {
@@ -199,8 +256,12 @@ export function SlideCanvas({
           ? (layoutPositions.imageHeight / 100) * CANVAS_HEIGHT
           : ((layout.imageArea.height || 50) / 100) * CANVAS_HEIGHT
       } else if (layoutType === 'textTop') {
-        imageY = (layout.imageArea.y / 100) * CANVAS_HEIGHT
-        imageHeight = ((layout.imageArea.height || 65) / 100) * CANVAS_HEIGHT
+        imageY = layoutPositions?.imageY !== undefined
+          ? (layoutPositions.imageY / 100) * CANVAS_HEIGHT
+          : (layout.imageArea.y / 100) * CANVAS_HEIGHT
+        imageHeight = layoutPositions?.imageHeight !== undefined
+          ? (layoutPositions.imageHeight / 100) * CANVAS_HEIGHT
+          : ((layout.imageArea.height || 65) / 100) * CANVAS_HEIGHT
       } else if (layoutType === 'textImageText') {
         imageY = layoutPositions?.imageY !== undefined
           ? (layoutPositions.imageY / 100) * CANVAS_HEIGHT
@@ -208,21 +269,41 @@ export function SlideCanvas({
         imageHeight = layoutPositions?.imageHeight !== undefined
           ? (layoutPositions.imageHeight / 100) * CANVAS_HEIGHT
           : ((layout.imageArea.height || 40) / 100) * CANVAS_HEIGHT
+      } else if (layoutType === 'imageBottom') {
+        // Imagem na parte inferior (full width)
+        imageY = layoutPositions?.imageY !== undefined
+          ? (layoutPositions.imageY / 100) * CANVAS_HEIGHT
+          : (layout.imageArea.y / 100) * CANVAS_HEIGHT
+        imageHeight = layoutPositions?.imageHeight !== undefined
+          ? (layoutPositions.imageHeight / 100) * CANVAS_HEIGHT
+          : ((layout.imageArea.height || 40) / 100) * CANVAS_HEIGHT
+      } else if (layoutType === 'imageLeft') {
+        // Imagem no lado esquerdo (40% width, full height)
+        imageX = (layout.imageArea.x / 100) * CANVAS_WIDTH
+        imageY = (layout.imageArea.y / 100) * CANVAS_HEIGHT
+        imageWidth = ((layout.imageArea.width || 40) / 100) * CANVAS_WIDTH
+        imageHeight = ((layout.imageArea.height || 100) / 100) * CANVAS_HEIGHT
+      } else if (layoutType === 'imageRight') {
+        // Imagem no lado direito (40% width, full height)
+        imageX = (layout.imageArea.x / 100) * CANVAS_WIDTH
+        imageY = (layout.imageArea.y / 100) * CANVAS_HEIGHT
+        imageWidth = ((layout.imageArea.width || 40) / 100) * CANVAS_WIDTH
+        imageHeight = ((layout.imageArea.height || 100) / 100) * CANVAS_HEIGHT
       } else {
         return bounds
       }
 
       bounds.push({
         element: 'image',
-        x: 0,
+        x: imageX,
         y: imageY,
-        width: CANVAS_WIDTH,
+        width: imageWidth,
         height: imageHeight,
         currentYPercent: layoutPositions?.imageY ?? (layout.imageArea.y || 0)
       })
     }
 
-    // Branding bounds (apenas no slide 1 com layout cover)
+    // Branding bounds (apenas no slide 1 com layout cover) - com padding extra
     if (slide.slideNumber === 1 && layoutType === 'cover') {
       const defaultBrandingX = layout.headlineArea.x  // Default: mesmo X do headline
       const defaultBrandingY = (layout.headlineArea.y) - 8  // Default: acima do headline
@@ -232,10 +313,10 @@ export function SlideCanvas({
 
       bounds.push({
         element: 'branding',
-        x: (brandingX / 100) * CANVAS_WIDTH,
-        y: (brandingY / 100) * CANVAS_HEIGHT,
-        width: 300,  // Largura aproximada do branding
-        height: 70,  // Altura aproximada do branding
+        x: (brandingX / 100) * CANVAS_WIDTH - hitPadding,
+        y: (brandingY / 100) * CANVAS_HEIGHT - hitPadding,
+        width: 450 + hitPadding * 2,  // Largura mais generosa para facilitar seleção
+        height: 150,  // Altura mais generosa para facilitar seleção
         currentYPercent: brandingY,
         currentXPercent: brandingX
       })
@@ -291,7 +372,7 @@ export function SlideCanvas({
     if (!bound) return
 
     const layoutType = slide.layoutType || 'cover'
-    const layoutPositions = slide.customPositions?.[layoutType]
+    const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
 
     // Se é imagem e Alt está pressionado, entra em modo pan
     if (element === 'image' && isAltPressed) {
@@ -330,6 +411,8 @@ export function SlideCanvas({
 
       const rect = canvas.getBoundingClientRect()
       const layoutType = slide.layoutType || 'cover'
+      const positionKey = getPositionKey(template.id, layoutType)
+      const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
 
       // Modo PAN - mover imagem dentro do frame
       if (dragState.mode === 'pan' && dragState.element === 'image') {
@@ -341,8 +424,9 @@ export function SlideCanvas({
         const deltaPercentY = (deltaY / rect.height) * 100
 
         // Limita offset baseado na escala atual
-        const currentScale = slide.customPositions?.[layoutType]?.imageScale ?? 1.0
-        const maxOffset = Math.max(0, (currentScale - 1) * 50)  // Quanto maior a escala, mais pode mover
+        // Permite offset mínimo de 30 mesmo sem zoom (importante para hand-drawn)
+        const currentScale = layoutPositions?.imageScale ?? 1.0
+        const maxOffset = Math.max(30, (currentScale - 1) * 50 + 30)
 
         const newOffsetX = Math.max(-maxOffset, Math.min(maxOffset, dragState.startOffsetX + deltaPercentX))
         const newOffsetY = Math.max(-maxOffset, Math.min(maxOffset, dragState.startOffsetY + deltaPercentY))
@@ -350,8 +434,8 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [layoutType]: {
-              ...slide.customPositions?.[layoutType],
+            [positionKey]: {
+              ...layoutPositions,
               imageOffsetX: newOffsetX,
               imageOffsetY: newOffsetY
             }
@@ -371,8 +455,8 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [layoutType]: {
-              ...slide.customPositions?.[layoutType],
+            [positionKey]: {
+              ...layoutPositions,
               headlineY: newY
             }
           }
@@ -382,8 +466,8 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [layoutType]: {
-              ...slide.customPositions?.[layoutType],
+            [positionKey]: {
+              ...layoutPositions,
               bodyY: newY
             }
           }
@@ -393,8 +477,8 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [layoutType]: {
-              ...slide.customPositions?.[layoutType],
+            [positionKey]: {
+              ...layoutPositions,
               imageY: newY
             }
           }
@@ -409,8 +493,8 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [layoutType]: {
-              ...slide.customPositions?.[layoutType],
+            [positionKey]: {
+              ...layoutPositions,
               brandingX: newX,
               brandingY: newY
             }
@@ -443,7 +527,9 @@ export function SlideCanvas({
     e.preventDefault()
 
     const layoutType = slide.layoutType || 'cover'
-    const currentScale = slide.customPositions?.[layoutType]?.imageScale ?? 1.0
+    const positionKey = getPositionKey(template.id, layoutType)
+    const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
+    const currentScale = layoutPositions?.imageScale ?? 1.0
 
     // Delta do scroll (normalizado)
     const delta = e.deltaY > 0 ? -0.1 : 0.1
@@ -452,35 +538,82 @@ export function SlideCanvas({
     onPositionChange?.({
       customPositions: {
         ...slide.customPositions,
-        [layoutType]: {
-          ...slide.customPositions?.[layoutType],
+        [positionKey]: {
+          ...layoutPositions,
           imageScale: newScale
         }
       }
     })
   }, [getElementAtPosition, onPositionChange, template, slide.layoutType, slide.customPositions])
 
-  // Double-click para resetar escala e offset da imagem
+  // Double-click para editar texto inline ou resetar imagem
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (!onPositionChange || !template) return
+    if (!template) return
 
     const element = getElementAtPosition(e.clientX, e.clientY)
-    if (element !== 'image') return
+    if (!element) return
 
     const layoutType = slide.layoutType || 'cover'
+    const positionKey = getPositionKey(template.id, layoutType)
+    const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
 
-    onPositionChange?.({
-      customPositions: {
-        ...slide.customPositions,
-        [layoutType]: {
-          ...slide.customPositions?.[layoutType],
-          imageScale: 1.0,
-          imageOffsetX: 0,
-          imageOffsetY: 0
+    // Para headline ou body, abre editor inline
+    if ((element === 'headline' || element === 'body') && onTextChange) {
+      const bound = elementBounds.find(b => b.element === element)
+      if (!bound) return
+
+      const layout = template.layouts[layoutType]
+
+      // Pegar estilo do texto
+      const isHeadline = element === 'headline'
+      const fontSize = isHeadline
+        ? (layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template.typography.headlineSize)
+        : (layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? template.typography.bodySize)
+      const fontFamily = isHeadline
+        ? (layoutPositions?.headlineFontFamily ?? template.typography.headlineFont)
+        : (layoutPositions?.bodyFontFamily ?? template.typography.bodyFont)
+      const fontWeight = isHeadline
+        ? (layoutPositions?.headlineFontWeight ?? template.typography.headlineWeight ?? 700)
+        : (layoutPositions?.bodyFontWeight ?? template.typography.bodyWeight ?? 400)
+      const fontStyle: 'normal' | 'italic' = isHeadline
+        ? ((layoutPositions?.headlineFontStyle ?? template.typography.headlineStyle ?? 'normal') as 'normal' | 'italic')
+        : ((layoutPositions?.bodyFontStyle ?? 'normal') as 'normal' | 'italic')
+      const textAlign = isHeadline
+        ? (layoutPositions?.headlineAlign ?? layout?.headlineArea?.align ?? 'left')
+        : (layoutPositions?.bodyAlign ?? layout?.bodyArea?.align ?? 'left')
+      const color = isHeadline ? (layout?.headlineColor ?? '#ffffff') : (layout?.bodyColor ?? '#ffffff')
+
+      setInlineEditState({
+        element,
+        position: bound,
+        style: {
+          fontSize,
+          fontFamily,
+          fontWeight,
+          fontStyle,
+          color,
+          textAlign,
+          lineHeight: isHeadline ? 1.15 : 1.4
         }
-      }
-    })
-  }, [getElementAtPosition, onPositionChange, template, slide.layoutType, slide.customPositions])
+      })
+      return
+    }
+
+    // Para imagem, resetar escala e offset
+    if (element === 'image' && onPositionChange) {
+      onPositionChange?.({
+        customPositions: {
+          ...slide.customPositions,
+          [positionKey]: {
+            ...layoutPositions,
+            imageScale: 1.0,
+            imageOffsetX: 0,
+            imageOffsetY: 0
+          }
+        }
+      })
+    }
+  }, [getElementAtPosition, onPositionChange, onTextChange, template, slide, elementBounds])
 
   // Determina o cursor
   const getCursor = () => {
@@ -495,7 +628,8 @@ export function SlideCanvas({
 
   // Pega escala atual da imagem para exibir
   const layoutType = slide.layoutType || 'cover'
-  const currentImageScale = slide.customPositions?.[layoutType]?.imageScale ?? 1.0
+  const currentLayoutPositions = getLayoutPositions(slide.customPositions, template?.id, layoutType)
+  const currentImageScale = currentLayoutPositions?.imageScale ?? 1.0
 
   return (
     <div className="relative">
@@ -515,6 +649,16 @@ export function SlideCanvas({
         onDoubleClick={handleDoubleClick}
       />
 
+      {/* Overlay de loading durante geração de imagem IA */}
+      {isGenerating && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg animate-pulse">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-16 h-16 rounded-full bg-white/20 animate-ping" style={{ animationDuration: '1.5s' }}></div>
+            <span className="text-white text-sm font-medium drop-shadow-lg">Gerando imagem...</span>
+          </div>
+        </div>
+      )}
+
       {/* Indicador visual do elemento sendo arrastado */}
       {dragState && (
         <div className="absolute top-2 left-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium">
@@ -533,7 +677,7 @@ export function SlideCanvas({
       )}
 
       {/* Indicador de hover */}
-      {hoveredElement && !dragState && onPositionChange && template && (
+      {hoveredElement && !dragState && onPositionChange && template && !inlineEditState && (
         <div className="absolute bottom-2 left-2 bg-muted text-muted-foreground px-2 py-1 rounded text-xs">
           {hoveredElement === 'image'
             ? (isAltPressed
@@ -541,9 +685,23 @@ export function SlideCanvas({
                 : 'Scroll para zoom | Alt+arrastar para mover | Duplo clique para resetar')
             : hoveredElement === 'branding'
               ? 'Arraste para mover o branding'
-              : `Arraste para mover ${hoveredElement === 'headline' ? 'o título' : 'o texto'}`
+              : `Arraste para mover | Duplo clique para editar ${hoveredElement === 'headline' ? 'o título' : 'o texto'}`
           }
         </div>
+      )}
+
+      {/* Editor de texto inline */}
+      {inlineEditState && onTextChange && canvasRef.current && (
+        <InlineTextEditor
+          value={inlineEditState.element === 'headline' ? slide.headline : slide.body}
+          onChange={(newValue) => {
+            onTextChange(inlineEditState.element, newValue)
+          }}
+          position={inlineEditState.position}
+          style={inlineEditState.style}
+          canvasRect={canvasRef.current.getBoundingClientRect()}
+          onClose={() => setInlineEditState(null)}
+        />
       )}
     </div>
   )

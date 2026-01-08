@@ -10,6 +10,7 @@ import {
   wrapText,
   percentToPixel,
   createFontString,
+  createCustomFontString,
   MOCKUP_IMAGE_URL
 } from '@/templates/renderers/base'
 
@@ -31,9 +32,13 @@ function createBackgroundLayer(color: string): Layer {
   }
 }
 
-// Create image layer
+// Create image layer - layout-aware
 async function createImageLayer(
   imageUrl: string,
+  layoutType: string,
+  layout: SlideLayoutConfig,
+  layoutPositions: NonNullable<CarouselSlide['customPositions']>[string] | undefined,
+  headerOffset: number,
   scale: number = 1.0,
   offsetX: number = 0,
   offsetY: number = 0
@@ -45,7 +50,96 @@ async function createImageLayer(
 
   try {
     const img = await loadImage(imageUrl)
-    drawImageCover(ctx, img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, scale, offsetX, offsetY)
+
+    if (layoutType === 'cover' || layoutType === 'fullImage') {
+      // Fullscreen image
+      drawImageCover(ctx, img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, scale, offsetX, offsetY)
+    } else if (layoutType === 'imageTop') {
+      // Imagem no topo com bordas arredondadas
+      const imgMargin = 20
+      const imgRadius = 20
+      const imgY = layoutPositions?.imageY !== undefined
+        ? percentToPixel(layoutPositions.imageY, 'height')
+        : percentToPixel(layout.imageArea!.y, 'height') + headerOffset
+      const imgHeight = layoutPositions?.imageHeight !== undefined
+        ? percentToPixel(layoutPositions.imageHeight, 'height')
+        : percentToPixel(layout.imageArea!.height || 55, 'height')
+
+      ctx.save()
+      ctx.beginPath()
+      ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+      ctx.clip()
+      drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+      ctx.restore()
+    } else if (layoutType === 'imageBottom') {
+      // Imagem na parte inferior com bordas arredondadas
+      const imgMargin = 20
+      const imgRadius = 20
+      const imgY = layoutPositions?.imageY !== undefined
+        ? percentToPixel(layoutPositions.imageY, 'height')
+        : percentToPixel(layout.imageArea!.y, 'height')
+      const imgHeight = layoutPositions?.imageHeight !== undefined
+        ? percentToPixel(layoutPositions.imageHeight, 'height')
+        : percentToPixel(layout.imageArea!.height || 40, 'height')
+
+      ctx.save()
+      ctx.beginPath()
+      ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+      ctx.clip()
+      drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+      ctx.restore()
+    } else if (layoutType === 'imageLeft') {
+      // Imagem 40% esquerda, altura total
+      const imgX = percentToPixel(layout.imageArea!.x, 'width')
+      const imgY = percentToPixel(layout.imageArea!.y, 'height')
+      const imgWidth = percentToPixel(layout.imageArea!.width, 'width')
+      const imgHeight = percentToPixel(layout.imageArea!.height || 100, 'height')
+
+      drawImageCover(ctx, img, imgX, imgY, imgWidth, imgHeight, scale, offsetX, offsetY)
+    } else if (layoutType === 'imageRight') {
+      // Imagem 40% direita, altura total
+      const imgX = percentToPixel(layout.imageArea!.x, 'width')
+      const imgY = percentToPixel(layout.imageArea!.y, 'height')
+      const imgWidth = percentToPixel(layout.imageArea!.width, 'width')
+      const imgHeight = percentToPixel(layout.imageArea!.height || 100, 'height')
+
+      drawImageCover(ctx, img, imgX, imgY, imgWidth, imgHeight, scale, offsetX, offsetY)
+    } else if (layoutType === 'textTop') {
+      // Imagem na parte inferior com bordas arredondadas
+      const imgMargin = 20
+      const imgRadius = 20
+      const imgY = layoutPositions?.imageY !== undefined
+        ? percentToPixel(layoutPositions.imageY, 'height')
+        : percentToPixel(layout.imageArea!.y, 'height')
+      const imgHeight = layoutPositions?.imageHeight !== undefined
+        ? percentToPixel(layoutPositions.imageHeight, 'height')
+        : percentToPixel(layout.imageArea!.height || 45, 'height')
+
+      ctx.save()
+      ctx.beginPath()
+      ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+      ctx.clip()
+      drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+      ctx.restore()
+    } else if (layoutType === 'textImageText') {
+      // Imagem no meio com bordas arredondadas
+      const imgMargin = 20
+      const imgRadius = 20
+      const imgY = layoutPositions?.imageY !== undefined
+        ? percentToPixel(layoutPositions.imageY, 'height')
+        : percentToPixel(layout.imageArea!.y, 'height')
+      const imgHeight = layoutPositions?.imageHeight !== undefined
+        ? percentToPixel(layoutPositions.imageHeight, 'height')
+        : percentToPixel(layout.imageArea!.height || 40, 'height')
+
+      ctx.save()
+      ctx.beginPath()
+      ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+      ctx.clip()
+      drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+      ctx.restore()
+    }
+    // textOnly não tem imagem
   } catch (error) {
     console.error('Failed to load image for PSD:', error)
     // Leave canvas transparent if image fails
@@ -287,12 +381,23 @@ function createHeadlineLayer(
   const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template.typography.headlineSize
 
   ctx.fillStyle = layout.headlineColor
-  ctx.font = createFontString(
-    headlineSize,
-    template.typography.headlineFont,
-    template.typography.headlineWeight,
-    template.typography.headlineStyle
-  )
+  // Usa fonte customizada se definida, senão usa fonte do template
+  if (layoutPositions?.headlineFontFamily) {
+    ctx.font = createCustomFontString(
+      headlineSize,
+      layoutPositions.headlineFontFamily,
+      template.typography.headlineFont,
+      layoutPositions.headlineFontWeight ?? 400,
+      layoutPositions.headlineFontStyle ?? 'normal'
+    )
+  } else {
+    ctx.font = createFontString(
+      headlineSize,
+      template.typography.headlineFont,
+      template.typography.headlineWeight,
+      template.typography.headlineStyle
+    )
+  }
   ctx.textAlign = layout.headlineArea.align
 
   const headlineLines = wrapText(ctx, slide.headline, headlineWidth, 20)
@@ -339,7 +444,18 @@ function createBodyLayer(
   const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? template.typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
-  ctx.font = `${template.typography.bodyWeight} ${bodySize}px ${template.typography.bodyFont}`
+  // Usa fonte customizada se definida, senão usa fonte do template
+  if (layoutPositions?.bodyFontFamily) {
+    ctx.font = createCustomFontString(
+      bodySize,
+      layoutPositions.bodyFontFamily,
+      template.typography.bodyFont,
+      layoutPositions.bodyFontWeight ?? 400,
+      layoutPositions.bodyFontStyle ?? 'normal'
+    )
+  } else {
+    ctx.font = `${template.typography.bodyWeight} ${bodySize}px ${template.typography.bodyFont}`
+  }
   ctx.textAlign = layout.bodyArea.align
 
   const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
@@ -380,9 +496,14 @@ export async function createPsdFromSlide(
 
   // 2. Image layer (if has image area)
   const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
+  const headerOffset = template.header.enabled ? template.header.height : 0
   if (imageToUse && layout.imageArea) {
     const imageLayer = await createImageLayer(
       imageToUse,
+      layoutType,
+      layout,
+      layoutPositions,
+      headerOffset,
       layoutPositions?.imageScale ?? 1.0,
       layoutPositions?.imageOffsetX ?? 0,
       layoutPositions?.imageOffsetY ?? 0
@@ -390,12 +511,14 @@ export async function createPsdFromSlide(
     layers.push(imageLayer)
   }
 
-  // 3. Gradient overlay layer
-  const overlayConfig = {
-    ...layout.gradientOverlay,
-    endOpacity: slide.gradientOpacity ?? layout.gradientOverlay.endOpacity
+  // 3. Gradient overlay layer (apenas para layouts fullscreen)
+  if (layoutType === 'cover' || layoutType === 'fullImage') {
+    const overlayConfig = {
+      ...layout.gradientOverlay,
+      endOpacity: slide.gradientOpacity ?? layout.gradientOverlay.endOpacity
+    }
+    layers.push(createGradientLayer(overlayConfig))
   }
-  layers.push(createGradientLayer(overlayConfig))
 
   // 4. Header group
   layers.push(createHeaderGroup(template, headerTexts))
@@ -440,12 +563,23 @@ export async function createPsdFromSlide(
   // Approximate headline lines
   const tempCanvas = document.createElement('canvas')
   const tempCtx = tempCanvas.getContext('2d')!
-  tempCtx.font = createFontString(
-    headlineSize,
-    template.typography.headlineFont,
-    template.typography.headlineWeight,
-    template.typography.headlineStyle
-  )
+  // Usa fonte customizada se definida, senão usa fonte do template
+  if (layoutPositions?.headlineFontFamily) {
+    tempCtx.font = createCustomFontString(
+      headlineSize,
+      layoutPositions.headlineFontFamily,
+      template.typography.headlineFont,
+      layoutPositions.headlineFontWeight ?? 400,
+      layoutPositions.headlineFontStyle ?? 'normal'
+    )
+  } else {
+    tempCtx.font = createFontString(
+      headlineSize,
+      template.typography.headlineFont,
+      template.typography.headlineWeight,
+      template.typography.headlineStyle
+    )
+  }
   const headlineWidth = percentToPixel(layout.headlineArea.width, 'width')
   const headlineLines = wrapText(tempCtx, slide.headline, headlineWidth, 20)
   const lineHeight = headlineSize * 1.15
@@ -565,7 +699,7 @@ function hexToRgbValues(hex: string): { r: number; g: number; b: number } {
 // Render only visual layers (background, image, gradient) without text
 async function renderBackgroundLayers(
   slide: CarouselSlide,
-  _template: CarouselTemplate,
+  template: CarouselTemplate,
   layout: SlideLayoutConfig,
   profileBranding?: ProfileBranding
 ): Promise<HTMLCanvasElement> {
@@ -574,34 +708,126 @@ async function renderBackgroundLayers(
   canvas.height = CANVAS_HEIGHT
   const ctx = canvas.getContext('2d')!
 
+  const layoutType = slide.layoutType || 'cover'
+  const layoutPositions = slide.customPositions?.[layoutType]
+  const headerOffset = template.header.enabled ? template.header.height : 0
+
   // Background color
   ctx.fillStyle = layout.backgroundColor
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
-  // Image
-  const layoutPositions = slide.customPositions?.[slide.layoutType || 'cover']
+  // Image - RESPEITAR LAYOUT
   const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
 
   if (imageToUse && layout.imageArea) {
     try {
       const img = await loadImage(imageToUse)
-      drawImageCover(
-        ctx, img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT,
-        layoutPositions?.imageScale ?? 1.0,
-        layoutPositions?.imageOffsetX ?? 0,
-        layoutPositions?.imageOffsetY ?? 0
-      )
+      const scale = layoutPositions?.imageScale ?? 1.0
+      const offsetX = layoutPositions?.imageOffsetX ?? 0
+      const offsetY = layoutPositions?.imageOffsetY ?? 0
+
+      if (layoutType === 'cover' || layoutType === 'fullImage') {
+        // Fullscreen image
+        drawImageCover(ctx, img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, scale, offsetX, offsetY)
+      } else if (layoutType === 'imageTop') {
+        // Imagem no topo com bordas arredondadas
+        const imgMargin = 20
+        const imgRadius = 20
+        const imgY = layoutPositions?.imageY !== undefined
+          ? percentToPixel(layoutPositions.imageY, 'height')
+          : percentToPixel(layout.imageArea.y, 'height') + headerOffset
+        const imgHeight = layoutPositions?.imageHeight !== undefined
+          ? percentToPixel(layoutPositions.imageHeight, 'height')
+          : percentToPixel(layout.imageArea.height || 55, 'height')
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+        ctx.clip()
+        drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+        ctx.restore()
+      } else if (layoutType === 'imageBottom') {
+        // Imagem na parte inferior com bordas arredondadas
+        const imgMargin = 20
+        const imgRadius = 20
+        const imgY = layoutPositions?.imageY !== undefined
+          ? percentToPixel(layoutPositions.imageY, 'height')
+          : percentToPixel(layout.imageArea.y, 'height')
+        const imgHeight = layoutPositions?.imageHeight !== undefined
+          ? percentToPixel(layoutPositions.imageHeight, 'height')
+          : percentToPixel(layout.imageArea.height || 40, 'height')
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+        ctx.clip()
+        drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+        ctx.restore()
+      } else if (layoutType === 'imageLeft') {
+        // Imagem 40% esquerda, altura total
+        const imgX = percentToPixel(layout.imageArea.x, 'width')
+        const imgY = percentToPixel(layout.imageArea.y, 'height')
+        const imgWidth = percentToPixel(layout.imageArea.width, 'width')
+        const imgHeight = percentToPixel(layout.imageArea.height || 100, 'height')
+
+        drawImageCover(ctx, img, imgX, imgY, imgWidth, imgHeight, scale, offsetX, offsetY)
+      } else if (layoutType === 'imageRight') {
+        // Imagem 40% direita, altura total
+        const imgX = percentToPixel(layout.imageArea.x, 'width')
+        const imgY = percentToPixel(layout.imageArea.y, 'height')
+        const imgWidth = percentToPixel(layout.imageArea.width, 'width')
+        const imgHeight = percentToPixel(layout.imageArea.height || 100, 'height')
+
+        drawImageCover(ctx, img, imgX, imgY, imgWidth, imgHeight, scale, offsetX, offsetY)
+      } else if (layoutType === 'textTop') {
+        // Imagem na parte inferior com bordas arredondadas
+        const imgMargin = 20
+        const imgRadius = 20
+        const imgY = layoutPositions?.imageY !== undefined
+          ? percentToPixel(layoutPositions.imageY, 'height')
+          : percentToPixel(layout.imageArea.y, 'height')
+        const imgHeight = layoutPositions?.imageHeight !== undefined
+          ? percentToPixel(layoutPositions.imageHeight, 'height')
+          : percentToPixel(layout.imageArea.height || 45, 'height')
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+        ctx.clip()
+        drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+        ctx.restore()
+      } else if (layoutType === 'textImageText') {
+        // Imagem no meio com bordas arredondadas
+        const imgMargin = 20
+        const imgRadius = 20
+        const imgY = layoutPositions?.imageY !== undefined
+          ? percentToPixel(layoutPositions.imageY, 'height')
+          : percentToPixel(layout.imageArea.y, 'height')
+        const imgHeight = layoutPositions?.imageHeight !== undefined
+          ? percentToPixel(layoutPositions.imageHeight, 'height')
+          : percentToPixel(layout.imageArea.height || 40, 'height')
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.roundRect(imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
+        ctx.clip()
+        drawImageCover(ctx, img, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, scale, offsetX, offsetY)
+        ctx.restore()
+      }
+      // textOnly não tem imagem
     } catch (error) {
       console.error('Failed to load image for PDF:', error)
     }
   }
 
-  // Gradient overlay
-  const overlayConfig = {
-    ...layout.gradientOverlay,
-    endOpacity: slide.gradientOpacity ?? layout.gradientOverlay.endOpacity
+  // Gradient overlay (apenas para layouts com imagem fullscreen)
+  if (layoutType === 'cover' || layoutType === 'fullImage') {
+    const overlayConfig = {
+      ...layout.gradientOverlay,
+      endOpacity: slide.gradientOpacity ?? layout.gradientOverlay.endOpacity
+    }
+    drawGradientOverlay(ctx, overlayConfig)
   }
-  drawGradientOverlay(ctx, overlayConfig)
 
   // Avatar (branding photo - as image, only slide 1)
   if (slide.slideNumber === 1 && profileBranding?.avatarUrl) {
@@ -661,9 +887,20 @@ async function renderBackgroundLayers(
   return canvas
 }
 
-// Simple text wrapping for PDF (returns array of lines)
-function splitTextForPdf(text: string, maxCharsPerLine: number): string[] {
+// Text wrapping for PDF using canvas measurement for accuracy
+function wrapTextForPdf(
+  text: string,
+  maxWidthPx: number,
+  fontSizePx: number,
+  fontFamily: string,
+  fontWeight: string = 'normal'
+): string[] {
   if (!text) return []
+
+  // Create temporary canvas for accurate text measurement
+  const tempCanvas = document.createElement('canvas')
+  const ctx = tempCanvas.getContext('2d')!
+  ctx.font = `${fontWeight} ${fontSizePx}px ${fontFamily}`
 
   const words = text.split(' ')
   const lines: string[] = []
@@ -671,7 +908,9 @@ function splitTextForPdf(text: string, maxCharsPerLine: number): string[] {
 
   for (const word of words) {
     const testLine = currentLine ? `${currentLine} ${word}` : word
-    if (testLine.length > maxCharsPerLine && currentLine) {
+    const metrics = ctx.measureText(testLine)
+
+    if (metrics.width > maxWidthPx && currentLine) {
       lines.push(currentLine)
       currentLine = word
     } else {
@@ -774,17 +1013,32 @@ export async function exportSlidesAsPdfEditable(
       ? percentToPixel(layoutPositions.headlineY, 'height')
       : percentToPixel(layout.headlineArea.y, 'height'))
 
+    // Verifica se deve usar fonte alternativa (bold condensed uppercase)
+    const useAltFont = layout.useAltHeadline === true
+    const baseSize = useAltFont ? template.typography.headlineAltSize : template.typography.headlineSize
+
     // Usa tamanho do layout se definido, depois do slide, senão usa do template
-    const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template.typography.headlineSize
+    const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? baseSize
     const headlineColor = hexToRgbValues(layout.headlineColor)
 
     pdf.setTextColor(headlineColor.r, headlineColor.g, headlineColor.b)
-    pdf.setFont('times', 'bolditalic') // Georgia-like
+
+    // Usar fonte correta baseado em useAltHeadline
+    if (useAltFont) {
+      pdf.setFont('helvetica', 'bold') // Aproximação de condensed bold
+    } else {
+      pdf.setFont('times', 'bolditalic') // Georgia-like italic
+    }
     pdf.setFontSize(headlineSize * 0.75) // Convert px to pt
 
-    // Wrap headline text
-    const headlineMaxChars = Math.floor((layout.headlineArea.width / 100) * 40) // Approximate chars per line
-    const headlineLines = splitTextForPdf(slide.headline, headlineMaxChars)
+    // Prepara texto (UPPERCASE se usar fonte alternativa)
+    const headlineText = useAltFont ? slide.headline.toUpperCase() : slide.headline
+
+    // Wrap headline text usando medição precisa
+    const headlineWidthPx = percentToPixel(layout.headlineArea.width, 'width')
+    const fontFamily = useAltFont ? 'Arial, Helvetica, sans-serif' : 'Georgia, Times, serif'
+    const fontWeight = useAltFont ? 'bold' : 'bold'
+    const headlineLines = wrapTextForPdf(headlineText, headlineWidthPx, headlineSize, fontFamily, fontWeight)
     const headlineLineHeight = pxToMm(headlineSize * 1.15)
 
     let headlineAlign: 'left' | 'center' | 'right' = 'left'
@@ -801,11 +1055,30 @@ export async function exportSlidesAsPdfEditable(
       pdf.text(line, headlineXPos, headlineY + (idx * headlineLineHeight), { align: headlineAlign })
     })
 
-    // 5. Body (native text)
+    // Calcular onde o headline termina
+    const headlineEndY = headlineY + (headlineLines.length * headlineLineHeight)
+
+    // 5. Linha separadora (se habilitada)
+    let separatorOffset = 30 // Offset padrão sem separador
+    if (template.decorations.separatorLine) {
+      const separatorY = headlineEndY + pxToMm(15)
+      const separatorColor = hexToRgbValues(template.decorations.separatorColor || '#FFFFFF')
+
+      pdf.setDrawColor(separatorColor.r, separatorColor.g, separatorColor.b)
+      pdf.setLineWidth(pxToMm(template.decorations.separatorThickness || 2))
+
+      // Desenha linha do mesmo X do headline até +100px
+      const lineStartX = headlineAlign === 'left' ? headlineXPos : headlineX
+      pdf.line(lineStartX, separatorY, lineStartX + pxToMm(100), separatorY)
+
+      separatorOffset = 60 // Offset maior quando tem separador
+    }
+
+    // 6. Body (native text)
     const bodyX = pxToMm(percentToPixel(layout.bodyArea.x, 'width'))
     const bodyY = layoutPositions?.bodyY !== undefined
       ? pxToMm(percentToPixel(layoutPositions.bodyY, 'height'))
-      : headlineY + (headlineLines.length * headlineLineHeight) + pxToMm(30)
+      : headlineEndY + pxToMm(separatorOffset)
 
     // Usa tamanho do layout se definido, depois do slide, senão usa do template
     const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? template.typography.bodySize
@@ -815,9 +1088,9 @@ export async function exportSlidesAsPdfEditable(
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(bodySize * 0.75)
 
-    // Wrap body text
-    const bodyMaxChars = Math.floor((layout.bodyArea.width / 100) * 50)
-    const bodyLines = splitTextForPdf(slide.body, bodyMaxChars)
+    // Wrap body text usando medição precisa
+    const bodyWidthPx = percentToPixel(layout.bodyArea.width, 'width')
+    const bodyLines = wrapTextForPdf(slide.body, bodyWidthPx, bodySize, 'Arial, Helvetica, sans-serif', 'normal')
     const bodyLineHeight = pxToMm(bodySize * 1.4)
 
     let bodyAlign: 'left' | 'center' | 'right' = 'left'

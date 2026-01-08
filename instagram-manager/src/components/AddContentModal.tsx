@@ -16,9 +16,10 @@ import { useCreateContent } from '@/hooks/useContents'
 interface AddContentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  defaultCollectionId?: string
 }
 
-export function AddContentModal({ open, onOpenChange }: AddContentModalProps) {
+export function AddContentModal({ open, onOpenChange, defaultCollectionId: _defaultCollectionId }: AddContentModalProps) {
   const [url, setUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
   const createContent = useCreateContent()

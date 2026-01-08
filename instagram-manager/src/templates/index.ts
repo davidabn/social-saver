@@ -1,14 +1,17 @@
 import type { CarouselTemplate } from '@/types/template'
-import { brandsDecodedTemplate } from './brands-decoded'
+import { contentCanvasTemplate } from './content-canvas'
+import { handDrawnTemplate } from './hand-drawn'
 
 // Lista de todos os templates disponíveis
 export const templates: CarouselTemplate[] = [
-  brandsDecodedTemplate
+  contentCanvasTemplate,
+  handDrawnTemplate
 ]
 
 // Mapa para acesso rápido por ID
 export const templatesById: Record<string, CarouselTemplate> = {
-  [brandsDecodedTemplate.id]: brandsDecodedTemplate
+  [contentCanvasTemplate.id]: contentCanvasTemplate,
+  [handDrawnTemplate.id]: handDrawnTemplate
 }
 
 // Função para buscar template por ID
@@ -17,4 +20,4 @@ export function getTemplateById(id: string): CarouselTemplate | undefined {
 }
 
 // Re-exporta os templates individuais
-export { brandsDecodedTemplate }
+export { contentCanvasTemplate, handDrawnTemplate }

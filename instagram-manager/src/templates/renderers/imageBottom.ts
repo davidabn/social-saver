@@ -1,15 +1,19 @@
 import type { CarouselSlide } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts, SlideLayoutConfig } from '@/types/template'
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/types/carousel'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, getLayoutPositions } from '@/types/carousel'
 import {
   drawHeader,
+  drawFooter,
+  drawGrain,
   drawImageCover,
+  drawImagePlaceholder,
   wrapText,
   drawTextWithUnderline,
   loadImage,
   percentToPixel,
   createFontString,
-  MOCKUP_IMAGE_URL
+  createCustomFontString,
+  renderRichText
 } from './base'
 
 export async function renderImageBottomLayout(
@@ -20,14 +24,19 @@ export async function renderImageBottomLayout(
   headerTexts: HeaderTexts
 ): Promise<void> {
   const { typography, decorations, header } = template
-  const layoutPositions = slide.customPositions?.['imageBottom']
+  const layoutPositions = getLayoutPositions(slide.customPositions, template.id, 'imageBottom')
 
   // 1. Desenha cor de fundo
   ctx.fillStyle = layout.backgroundColor
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
-  // 2. Desenha header
-  drawHeader(ctx, template, headerTexts)
+  // 1.1 Desenha grain (textura granulada)
+  if (slide.grainIntensity && slide.grainIntensity > 0) {
+    drawGrain(ctx, slide.grainIntensity)
+  }
+
+  // 2. Desenha header (com cor ajustada ao fundo)
+  drawHeader(ctx, template, headerTexts, layout.backgroundColor)
 
   // 3. Desenha headline no topo
   const headlineX = percentToPixel(layout.headlineArea.x, 'width')
@@ -40,43 +49,93 @@ export async function renderImageBottomLayout(
   const headlineSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? typography.headlineSize
 
   ctx.fillStyle = layout.headlineColor
-  ctx.font = createFontString(
-    headlineSize,
-    typography.headlineFont,
-    typography.headlineWeight,
-    typography.headlineStyle  // ITALIC
-  )
+  // Usa fonte customizada se definida, senão usa fonte do template
+  if (layoutPositions?.headlineFontFamily) {
+    ctx.font = createCustomFontString(
+      headlineSize,
+      layoutPositions.headlineFontFamily,
+      typography.headlineFont,
+      layoutPositions.headlineFontWeight ?? 400,
+      layoutPositions.headlineFontStyle ?? 'normal'
+    )
+  } else {
+    ctx.font = createFontString(
+      headlineSize,
+      typography.headlineFont,
+      typography.headlineWeight,
+      typography.headlineStyle  // ITALIC
+    )
+  }
   // Usa alinhamento customizado do layout ou o padrão do template
   const headlineAlign = layoutPositions?.headlineAlign ?? layout.headlineArea.align
   ctx.textAlign = headlineAlign
 
-  const headlineLines = wrapText(ctx, slide.headline, headlineWidth, 20)
+  // Verifica se tem formatação HTML
+  const hasHtmlFormatting = slide.headline.includes('<')
+
+  // Calcula posição X baseada no alinhamento
+  const headlineDrawX = headlineAlign === 'center'
+    ? headlineX
+    : headlineAlign === 'right'
+      ? CANVAS_WIDTH - headlineX
+      : headlineX
+
   const lineHeight = headlineSize * 1.15
+  let headlineEndY: number
 
-  headlineLines.forEach((line, index) => {
-    const x = headlineAlign === 'center'
-      ? CANVAS_WIDTH / 2
-      : headlineAlign === 'right'
-        ? CANVAS_WIDTH - headlineX
-        : headlineX
+  // Se tem formatação HTML, usa renderRichText
+  if (hasHtmlFormatting) {
+    const fontWeight = layoutPositions?.headlineFontWeight ?? 400
+    const fontStyle = layoutPositions?.headlineFontStyle ?? typography.headlineStyle ?? 'normal'
+    const fontFamily = layoutPositions?.headlineFontFamily ?? typography.headlineFont
 
-    if (decorations.underlineHeadline && slide.highlightWords?.length) {
-      drawTextWithUnderline(
-        ctx,
-        line,
-        x,
-        headlineY + (index * lineHeight),
-        slide.highlightWords,
-        decorations.underlineColor,
-        decorations.underlineThickness
-      )
-    } else {
-      ctx.fillText(line, x, headlineY + (index * lineHeight))
-    }
-  })
+    const renderedHeight = renderRichText(
+      ctx,
+      slide.headline,
+      headlineDrawX,
+      headlineY,
+      headlineWidth,
+      {
+        fontSize: headlineSize,
+        fontFamily,
+        fontWeight,
+        fontStyle,
+        color: layout.headlineColor,
+        textAlign: headlineAlign,
+        lineHeight: 1.15
+      },
+      20
+    )
+    headlineEndY = headlineY + renderedHeight
+  } else {
+    // Renderização tradicional (sem HTML)
+    const headlineLines = wrapText(ctx, slide.headline, headlineWidth, 20)
 
-  // Calcular onde o headline termina
-  const headlineEndY = headlineY + (headlineLines.length * lineHeight)
+    headlineLines.forEach((line, index) => {
+      const x = headlineAlign === 'center'
+        ? CANVAS_WIDTH / 2
+        : headlineAlign === 'right'
+          ? CANVAS_WIDTH - headlineX
+          : headlineX
+
+      if (decorations.underlineHeadline && slide.highlightWords?.length) {
+        drawTextWithUnderline(
+          ctx,
+          line,
+          x,
+          headlineY + (index * lineHeight),
+          slide.highlightWords,
+          decorations.underlineColor,
+          decorations.underlineThickness
+        )
+      } else {
+        ctx.fillText(line, x, headlineY + (index * lineHeight))
+      }
+    })
+
+    // Calcular onde o headline termina
+    headlineEndY = headlineY + (headlineLines.length * lineHeight)
+  }
 
   // 4. Desenha body abaixo do headline
   const bodyX = percentToPixel(layout.bodyArea.x, 'width')
@@ -89,39 +148,83 @@ export async function renderImageBottomLayout(
   const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
-  ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
+  // Usa fonte customizada se definida, senão usa fonte do template
+  if (layoutPositions?.bodyFontFamily) {
+    ctx.font = createCustomFontString(
+      bodySize,
+      layoutPositions.bodyFontFamily,
+      typography.bodyFont,
+      layoutPositions.bodyFontWeight ?? 400,
+      layoutPositions.bodyFontStyle ?? 'normal'
+    )
+  } else {
+    ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
+  }
   // Usa alinhamento customizado do layout ou o padrão do template
   const bodyAlign = layoutPositions?.bodyAlign ?? layout.bodyArea.align
   ctx.textAlign = bodyAlign
 
-  const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
-  const bodyLineHeight = bodySize * 1.4
+  // Verifica se body tem formatação HTML
+  const bodyHasHtml = slide.body.includes('<')
 
-  bodyLines.forEach((line, index) => {
-    const x = bodyAlign === 'center'
-      ? CANVAS_WIDTH / 2
-      : bodyAlign === 'right'
-        ? CANVAS_WIDTH - bodyX
-        : bodyX
+  // Calcula posição X baseada no alinhamento
+  const bodyDrawX = bodyAlign === 'center'
+    ? bodyX
+    : bodyAlign === 'right'
+      ? CANVAS_WIDTH - bodyX
+      : bodyX
 
-    ctx.fillText(line, x, bodyY + (index * bodyLineHeight))
-  })
+  if (bodyHasHtml) {
+    const bodyFontWeight = layoutPositions?.bodyFontWeight ?? 400
+    const bodyFontStyle = layoutPositions?.bodyFontStyle ?? 'normal'
+    const bodyFontFamily = layoutPositions?.bodyFontFamily ?? typography.bodyFont
+
+    renderRichText(
+      ctx,
+      slide.body,
+      bodyDrawX,
+      bodyY,
+      bodyWidth,
+      {
+        fontSize: bodySize,
+        fontFamily: bodyFontFamily,
+        fontWeight: bodyFontWeight,
+        fontStyle: bodyFontStyle,
+        color: layout.bodyColor,
+        textAlign: bodyAlign,
+        lineHeight: 1.4
+      },
+      20
+    )
+  } else {
+    // Renderização tradicional
+    const bodyLines = wrapText(ctx, slide.body, bodyWidth, 20)
+    const bodyLineHeight = bodySize * 1.4
+
+    bodyLines.forEach((line, index) => {
+      const x = bodyAlign === 'center'
+        ? CANVAS_WIDTH / 2
+        : bodyAlign === 'right'
+          ? CANVAS_WIDTH - bodyX
+          : bodyX
+
+      ctx.fillText(line, x, bodyY + (index * bodyLineHeight))
+    })
+  }
 
   // 5. Desenha imagem na parte inferior (com bordas arredondadas)
-  // Usa mockup se não tiver imagem e showMockup !== false
-  const imageToUse = slide.imageUrl || (slide.showMockup !== false ? MOCKUP_IMAGE_URL : null)
-  if (imageToUse && layout.imageArea) {
-    try {
-      const img = await loadImage(imageToUse)
+  const imgMargin = 20
+  const imgRadius = 20
+  const imgY = layoutPositions?.imageY !== undefined
+    ? percentToPixel(layoutPositions.imageY, 'height')
+    : percentToPixel(layout.imageArea?.y || 60, 'height')
+  const imgHeight = layoutPositions?.imageHeight !== undefined
+    ? percentToPixel(layoutPositions.imageHeight, 'height')
+    : percentToPixel(layout.imageArea?.height || 40, 'height')
 
-      const imgMargin = 20
-      const imgRadius = 20
-      const imgY = layoutPositions?.imageY !== undefined
-        ? percentToPixel(layoutPositions.imageY, 'height')
-        : percentToPixel(layout.imageArea.y, 'height')
-      const imgHeight = layoutPositions?.imageHeight !== undefined
-        ? percentToPixel(layoutPositions.imageHeight, 'height')
-        : percentToPixel(layout.imageArea.height || 40, 'height')
+  if (slide.imageUrl && layout.imageArea) {
+    try {
+      const img = await loadImage(slide.imageUrl)
 
       // Bordas arredondadas para a imagem
       ctx.save()
@@ -137,6 +240,14 @@ export async function renderImageBottomLayout(
       ctx.restore()
     } catch (error) {
       console.error('Failed to load image for imageBottom layout:', error)
+      // Se falhar ao carregar, desenha placeholder
+      drawImagePlaceholder(ctx, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
     }
+  } else if (layout.imageArea) {
+    // Sem imagem definida - desenha placeholder visual
+    drawImagePlaceholder(ctx, imgMargin, imgY, CANVAS_WIDTH - imgMargin * 2, imgHeight, imgRadius)
   }
+
+  // 6. Desenha footer (apenas slides 2+, com cor ajustada ao fundo)
+  drawFooter(ctx, template, headerTexts, slide.slideNumber, layout.backgroundColor)
 }
