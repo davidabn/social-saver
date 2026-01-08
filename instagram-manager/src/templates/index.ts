@@ -1,15 +1,18 @@
 import type { CarouselTemplate } from '@/types/template'
 import { contentCanvasTemplate } from './content-canvas'
 import { handDrawnTemplate } from './hand-drawn'
+import { defaultTemplate } from './default'
 
 // Lista de todos os templates disponíveis
 export const templates: CarouselTemplate[] = [
+  defaultTemplate,
   contentCanvasTemplate,
   handDrawnTemplate
 ]
 
 // Mapa para acesso rápido por ID
 export const templatesById: Record<string, CarouselTemplate> = {
+  [defaultTemplate.id]: defaultTemplate,
   [contentCanvasTemplate.id]: contentCanvasTemplate,
   [handDrawnTemplate.id]: handDrawnTemplate
 }
@@ -20,4 +23,4 @@ export function getTemplateById(id: string): CarouselTemplate | undefined {
 }
 
 // Re-exporta os templates individuais
-export { contentCanvasTemplate, handDrawnTemplate }
+export { contentCanvasTemplate, handDrawnTemplate, defaultTemplate }

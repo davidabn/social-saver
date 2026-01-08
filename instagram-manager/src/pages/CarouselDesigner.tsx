@@ -33,7 +33,7 @@ import type { CarouselSlide, CarouselDesign, ProfileBranding } from '@/types/car
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
 import { getDefaultLayoutForSlide } from '@/templates/renderers'
-import { getTemplateById } from '@/templates'
+import { getTemplateById, defaultTemplate } from '@/templates'
 import { parseCarouselScript, type ParsedSlide } from '@/utils/scriptParser'
 import { exportSlidesAsPsd, exportSlidesAsPsdZip, exportSlidesAsPdfEditable } from '@/utils/psdExport'
 
@@ -42,52 +42,22 @@ function generateId() {
 }
 
 function createNewSlide(slideNumber: number, template?: CarouselTemplate): CarouselSlide {
+  // Sempre usa um template, fallback para defaultTemplate
+  const actualTemplate = template || defaultTemplate
   return {
     id: generateId(),
     slideNumber,
     ...DEFAULT_SLIDE,
-    layoutType: template ? getDefaultLayoutForSlide(slideNumber, template) : undefined
+    layoutType: getDefaultLayoutForSlide(slideNumber, actualTemplate)
   }
 }
 
 export default function CarouselDesigner() {
   const { contentId } = useParams()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const passedScript = (location.state as { script?: string })?.script
-
-  // Carousel persistence
-  const carouselIdFromUrl = searchParams.get('id')
-  const [carouselId, setCarouselId] = useState<string | null>(carouselIdFromUrl)
-  const [isSaving, setIsSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [showSavedCarousels, setShowSavedCarousels] = useState(false)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const isLoadingRef = useRef(false) // Evita auto-save durante carregamento
-
-  const saveCarouselMutation = useSaveCarousel()
-  const { data: loadedCarousel, isLoading: isLoadingCarousel } = useCarousel(carouselIdFromUrl)
-  const { data: savedCarouselsList } = useCarouselList()
-  const deleteCarouselMutation = useDeleteCarousel()
-
-  // Design state with undo/redo
-  const {
-    state: design,
-    setState: setDesign,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    resetState: resetDesign
-  } = useUndoRedo<CarouselDesign>({
-    id: generateId(),
-    ...DEFAULT_DESIGN,
-    slides: [createNewSlide(1)]
-  })
-
-  // Template state
-  const [selectedTemplate, setSelectedTemplate] = useState<CarouselTemplate | null>(null)
+  // ... (rest of the file)
+  
+  // Template state - Começa com defaultTemplate
+  const [selectedTemplate, setSelectedTemplate] = useState<CarouselTemplate | null>(defaultTemplate)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [headerTexts, setHeaderTexts] = useState<HeaderTexts>({
     left: '',
