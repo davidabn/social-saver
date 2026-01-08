@@ -34,7 +34,8 @@ function getProxyImageUrl(url: string | null): string | null {
       url.includes('supabase.co') ||        // Supabase Storage (avatars)
       url.includes('kie.ai') ||             // Kie.ai image generation CDN
       url.includes('aiquickdraw.com') ||    // Kie.ai temp file CDN
-      url.includes('replicate.delivery')    // Common AI image CDN
+      url.includes('replicate.delivery') || // Common AI image CDN
+      url.includes('cloudinary.com')        // Cloudinary Images
   ) {
     return url
   }
@@ -411,7 +412,7 @@ export function SlideCanvas({
 
       const rect = canvas.getBoundingClientRect()
       const layoutType = slide.layoutType || 'cover'
-      const positionKey = getPositionKey(template.id, layoutType)
+      const positionKey = getLayoutPositions(slide.customPositions, template.id, layoutType) ? getPositionKey(template.id, layoutType) : ''
       const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
 
       // Modo PAN - mover imagem dentro do frame
@@ -428,13 +429,13 @@ export function SlideCanvas({
         const currentScale = layoutPositions?.imageScale ?? 1.0
         const maxOffset = Math.max(30, (currentScale - 1) * 50 + 30)
 
-        const newOffsetX = Math.max(-maxOffset, Math.min(maxOffset, dragState.startOffsetX + deltaPercentX))
-        const newOffsetY = Math.max(-maxOffset, Math.min(maxOffset, dragState.startOffsetY + deltaPercentY))
+        const newOffsetX = Math.max(-maxOffset, Math.min(maxOffset, (dragState.startOffsetX || 0) + deltaPercentX))
+        const newOffsetY = Math.max(-maxOffset, Math.min(maxOffset, (dragState.startOffsetY || 0) + deltaPercentY))
 
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [positionKey]: {
+            [getPositionKey(template.id, layoutType)]: {
               ...layoutPositions,
               imageOffsetX: newOffsetX,
               imageOffsetY: newOffsetY
@@ -455,7 +456,7 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [positionKey]: {
+            [getPositionKey(template.id, layoutType)]: {
               ...layoutPositions,
               headlineY: newY
             }
@@ -466,7 +467,7 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [positionKey]: {
+            [getPositionKey(template.id, layoutType)]: {
               ...layoutPositions,
               bodyY: newY
             }
@@ -477,7 +478,7 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [positionKey]: {
+            [getPositionKey(template.id, layoutType)]: {
               ...layoutPositions,
               imageY: newY
             }
@@ -493,7 +494,7 @@ export function SlideCanvas({
         onPositionChange?.({
           customPositions: {
             ...slide.customPositions,
-            [positionKey]: {
+            [getPositionKey(template.id, layoutType)]: {
               ...layoutPositions,
               brandingX: newX,
               brandingY: newY
@@ -527,7 +528,6 @@ export function SlideCanvas({
     e.preventDefault()
 
     const layoutType = slide.layoutType || 'cover'
-    const positionKey = getPositionKey(template.id, layoutType)
     const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
     const currentScale = layoutPositions?.imageScale ?? 1.0
 
@@ -538,7 +538,7 @@ export function SlideCanvas({
     onPositionChange?.({
       customPositions: {
         ...slide.customPositions,
-        [positionKey]: {
+        [getPositionKey(template.id, layoutType)]: {
           ...layoutPositions,
           imageScale: newScale
         }
@@ -554,7 +554,6 @@ export function SlideCanvas({
     if (!element) return
 
     const layoutType = slide.layoutType || 'cover'
-    const positionKey = getPositionKey(template.id, layoutType)
     const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
 
     // Para headline ou body, abre editor inline
@@ -604,7 +603,7 @@ export function SlideCanvas({
       onPositionChange?.({
         customPositions: {
           ...slide.customPositions,
-          [positionKey]: {
+          [getPositionKey(template.id, layoutType)]: {
             ...layoutPositions,
             imageScale: 1.0,
             imageOffsetX: 0,

@@ -27,7 +27,7 @@ const renderers = {
 // Layouts que usam backgroundAlt (fundo escuro) em vez de background
 const DARK_BACKGROUND_LAYOUTS: SlideLayoutType[] = ['textOnly', 'cover', 'fullImage', 'imageBottom', 'imageLeft', 'imageRight']
 
-// Aplica cores customizadas ao layout
+// Aplica cores customizadas al layout
 function applyCustomPalette(
   layout: SlideLayoutConfig,
   layoutType: SlideLayoutType,
@@ -136,8 +136,19 @@ export { renderImageRightLayout } from './imageRight'
 // Re-exporta funções base úteis
 export {
   drawHeader,
+  drawFooter,
   drawGradientOverlay,
+  drawGrain,
+  drawImageCover,
+  drawImageOriginalSize,
+  drawImagePlaceholder,
   wrapText,
+  drawTextWithUnderline,
+  drawHandDrawnArrow,
   loadImage,
-  getProxyImageUrl
+  percentToPixel,
+  createFontString,
+  createCustomFontString,
+  drawProfileBranding,
+  renderRichText
 } from './base'
