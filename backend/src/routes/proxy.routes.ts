@@ -25,7 +25,8 @@ router.get('/image', async (req: Request, res: Response) => {
                            url.hostname.includes('tiktok.com') ||
                            url.hostname.includes('byteoversea.com') ||
                            url.hostname.includes('ibyteimg.com') || // TikTok image CDN
-                           url.hostname.includes('supabase.co') // Supabase Storage (avatars)
+                           url.hostname.includes('supabase.co') || // Supabase Storage (avatars)
+                           url.hostname.includes('cloudinary.com') // Cloudinary Images
 
     // console.log('[Proxy] Hostname:', url.hostname, 'Allowed:', isAllowedCDN)
 
