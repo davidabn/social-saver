@@ -5,6 +5,7 @@ import { supabaseAdmin } from '../lib/supabase.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { perplexityService } from '../services/perplexity.service.js'
 import { kieService } from '../services/kie.service.js'
+import { uploadToCloudinary } from '../services/cloudinary.service.js'
 import { IMAGE_PROMPT_ENGINEER_SYSTEM } from '../prompts/image-prompt-engineer.js'
 import { HAND_DRAWN_IMAGE_PROMPT_SYSTEM } from '../prompts/hand-drawn-prompt.js'
 import OpenAI from 'openai'
@@ -85,8 +86,8 @@ export async function generateSlides(
 
       if (content) {
         const transcription = Array.isArray(content.transcription)
-          ? content.transcription[0]?.full_text
-          : content.transcription?.full_text
+          ? (content.transcription[0] as any)?.full_text
+          : (content.transcription as any)?.full_text
 
         additionalContext = transcription || content.caption || ''
       }
@@ -237,8 +238,8 @@ export async function generateSlidesWithImages(
 
       if (content) {
         const transcription = Array.isArray(content.transcription)
-          ? content.transcription[0]?.full_text
-          : content.transcription?.full_text
+          ? (content.transcription[0] as any)?.full_text
+          : (content.transcription as any)?.full_text
 
         additionalContext = transcription || content.caption || ''
       }
@@ -437,7 +438,7 @@ Return ONLY the JSON array, no other text.`
 }
 
 // POST /api/carousel/upload-image
-// Upload image to Supabase Storage
+// Upload image to Cloudinary
 export async function uploadImage(
   req: AuthenticatedRequest,
   res: Response,
@@ -462,33 +463,16 @@ export async function uploadImage(
       throw new AppError('File too large. Maximum size is 10MB', 400)
     }
 
-    // Generate unique filename
-    const ext = file.originalname.split('.').pop() || 'jpg'
-    const filename = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+    console.log(`[Carousel] Uploading image to Cloudinary: ${file.originalname} (${file.size} bytes)`)
 
-    console.log(`[Carousel] Uploading image: ${filename} (${file.size} bytes)`)
+    // Upload to Cloudinary
+    // Organize by user_id: `carousels/{userId}`
+    const folder = `carousels/${userId}`
+    const imageUrl = await uploadToCloudinary(file.buffer, folder)
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabaseAdmin.storage
-      .from('carousel-images')
-      .upload(filename, file.buffer, {
-        contentType: file.mimetype,
-        upsert: false
-      })
+    console.log(`[Carousel] Image uploaded successfully: ${imageUrl}`)
 
-    if (error) {
-      console.error('[Carousel] Supabase upload error:', error)
-      throw new AppError('Failed to upload image', 500)
-    }
-
-    // Get public URL
-    const { data: urlData } = supabaseAdmin.storage
-      .from('carousel-images')
-      .getPublicUrl(filename)
-
-    console.log(`[Carousel] Image uploaded successfully: ${urlData.publicUrl}`)
-
-    res.json({ url: urlData.publicUrl })
+    res.json({ url: imageUrl })
   } catch (error) {
     next(error)
   }
