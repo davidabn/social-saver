@@ -1,5 +1,6 @@
 // Kie.ai Image Generation Service (Flux 2 Pro + GPT Image 1.5)
 import { supabaseAdmin } from '../lib/supabase.js'
+import { uploadToCloudinary } from './cloudinary.service.js'
 
 const KIE_API_BASE = 'https://api.kie.ai/api/v1'
 const SUPABASE_BUCKET = 'carousel-images'
@@ -183,9 +184,9 @@ export class KieService {
   }
 
   /**
-   * Faz download da imagem e upload para Supabase Storage
+   * Faz download da imagem e upload para Cloudinary
    */
-  async uploadToSupabase(imageUrl: string): Promise<string> {
+  async uploadToCloudinaryInternal(imageUrl: string): Promise<string> {
     console.log(`[Kie.ai] Downloading image from: ${imageUrl.substring(0, 60)}...`)
 
     // Download the image
@@ -197,33 +198,13 @@ export class KieService {
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // Generate unique filename
-    const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 8)
-    const fileName = `ai-generated/${timestamp}-${randomId}.png`
+    console.log(`[Kie.ai] Uploading to Cloudinary...`)
 
-    console.log(`[Kie.ai] Uploading to Supabase: ${fileName}`)
+    // Upload to Cloudinary into 'ai-generated' folder
+    const secureUrl = await uploadToCloudinary(buffer, 'ai-generated')
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabaseAdmin.storage
-      .from(SUPABASE_BUCKET)
-      .upload(fileName, buffer, {
-        contentType: 'image/png',
-        upsert: true
-      })
-
-    if (error) {
-      console.error('[Kie.ai] Supabase upload error:', error)
-      throw new Error(`Failed to upload to Supabase: ${error.message}`)
-    }
-
-    // Get public URL
-    const { data: urlData } = supabaseAdmin.storage
-      .from(SUPABASE_BUCKET)
-      .getPublicUrl(fileName)
-
-    console.log(`[Kie.ai] Uploaded successfully: ${urlData.publicUrl}`)
-    return urlData.publicUrl
+    console.log(`[Kie.ai] Uploaded successfully: ${secureUrl}`)
+    return secureUrl
   }
 
   /**
@@ -235,8 +216,8 @@ export class KieService {
     const { taskId } = await this.createImageTask(prompt, options)
     const tempUrl = await this.waitForTask(taskId)
 
-    // Upload to Supabase for permanent URL
-    const permanentUrl = await this.uploadToSupabase(tempUrl)
+    // Upload to Cloudinary for permanent URL
+    const permanentUrl = await this.uploadToCloudinaryInternal(tempUrl)
     return permanentUrl
   }
 
