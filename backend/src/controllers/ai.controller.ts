@@ -116,6 +116,12 @@ export async function generateContent(
       instructions
     )
 
+    // Save generated script to database
+    await supabaseAdmin
+      .from('saved_contents')
+      .update({ generated_script: generatedText })
+      .eq('id', contentId)
+
     res.json({ content: generatedText })
   } catch (error) {
     next(error)

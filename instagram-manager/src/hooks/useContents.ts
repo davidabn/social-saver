@@ -11,6 +11,7 @@ export interface ContentFilters {
   dateFrom?: string
   dateTo?: string
   filter?: 'all' | 'reel' | 'post' | 'carousel'
+  platform?: 'all' | 'instagram' | 'youtube' | 'tiktok'
 }
 
 async function getAuthHeaders() {
@@ -26,7 +27,7 @@ async function getAuthHeaders() {
 
 // Fetch contents with filters
 async function fetchContents(filters: ContentFilters = {}): Promise<PaginatedResponse<SavedContent>> {
-  const { page = 1, limit = 20, search, dateFrom, dateTo, filter } = filters
+  const { page = 1, limit = 20, search, dateFrom, dateTo, filter, platform } = filters
   const headers = await getAuthHeaders()
 
   const params = new URLSearchParams()
@@ -36,6 +37,7 @@ async function fetchContents(filters: ContentFilters = {}): Promise<PaginatedRes
   if (dateFrom) params.append('date_from', dateFrom)
   if (dateTo) params.append('date_to', dateTo)
   if (filter && filter !== 'all') params.append('filter', filter)
+  if (platform && platform !== 'all') params.append('platform', platform)
 
   const response = await fetch(`${API_URL}/contents?${params.toString()}`, { headers })
 

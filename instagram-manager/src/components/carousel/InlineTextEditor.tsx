@@ -5,6 +5,7 @@ import { PREVIEW_SCALE } from '@/types/carousel'
 interface InlineTextEditorProps {
   value: string
   onChange: (value: string) => void
+  onStyleChange?: (style: { fontFamily?: string, color?: string }) => void
   position: {
     x: number
     y: number
@@ -27,6 +28,7 @@ interface InlineTextEditorProps {
 export function InlineTextEditor({
   value,
   onChange,
+  onStyleChange,
   position,
   style,
   canvasRect,
@@ -42,6 +44,15 @@ export function InlineTextEditor({
     font: style.fontFamily,
     color: style.color
   })
+
+  // Atualizar estado interno se props de estilo mudarem (para refletir mudança externa)
+  useEffect(() => {
+    setCurrentFormat(prev => ({
+      ...prev,
+      font: style.fontFamily,
+      color: style.color
+    }))
+  }, [style.fontFamily, style.color])
 
   // Calcular posição do editor baseado na escala do preview
   const scaledPosition = {
@@ -73,6 +84,7 @@ export function InlineTextEditor({
     if (!selection || selection.rangeCount === 0) return
 
     // Detectar fonte e cor do elemento pai da seleção
+    // Se estivermos usando estilo em bloco, priorizamos a prop style
     let font = style.fontFamily
     let color = style.color
 
@@ -84,8 +96,8 @@ export function InlineTextEditor({
 
       if (parentElement) {
         const computedStyle = window.getComputedStyle(parentElement)
-        font = computedStyle.fontFamily.split(',')[0].replace(/['"]/g, '') || style.fontFamily
-        color = rgbToHex(computedStyle.color) || style.color
+        // Se houver override local (span), detecta, senão usa do bloco
+        // Mas a UI deve refletir o que vai ser aplicado
       }
     }
 
@@ -147,15 +159,26 @@ export function InlineTextEditor({
   }
 
   const handleFont = (fontName: string) => {
-    document.execCommand('fontName', false, fontName)
+    // IMPORTANTE: Para fonte, mudamos o estilo do BLOCO todo via prop,
+    // em vez de inserir tags HTML. Isso garante consistência com o renderizador do canvas.
+    if (onStyleChange) {
+      onStyleChange({ fontFamily: fontName })
+    } else {
+      // Fallback se não tiver handler (não deve acontecer com SlideCanvas atualizado)
+      document.execCommand('fontName', false, fontName)
+    }
     editorRef.current?.focus()
-    setCurrentFormat(prev => ({ ...prev, font: fontName }))
+    // O estado currentFormat será atualizado pelo useEffect quando a prop mudar
   }
 
   const handleColor = (color: string) => {
-    document.execCommand('foreColor', false, color)
+    // Mesmo princípio para cor: preferir estilo de bloco se possível
+    if (onStyleChange) {
+      onStyleChange({ color: color })
+    } else {
+      document.execCommand('foreColor', false, color)
+    }
     editorRef.current?.focus()
-    setCurrentFormat(prev => ({ ...prev, color }))
   }
 
   // Salvar HTML ao fechar
@@ -223,6 +246,8 @@ export function InlineTextEditor({
         suppressContentEditableWarning
         onKeyDown={handleKeyDown}
         style={{
+          // Com a posição limpa vinda do SlideCanvas, podemos usar posicionamento simples
+          // e largura fixa para respeitar as margens do layout
           position: 'fixed',
           left: scaledPosition.left,
           top: scaledPosition.top,
@@ -242,9 +267,9 @@ export function InlineTextEditor({
           backdropFilter: 'blur(4px)',
           zIndex: 1000,
           cursor: 'text',
-          whiteSpace: 'pre-wrap',
+          whiteSpace: 'pre-wrap', // Permite quebra de linha normal
           wordBreak: 'break-word',
-          overflow: 'hidden'
+          overflow: 'visible'
         }}
         dangerouslySetInnerHTML={{ __html: initialHtml }}
       />

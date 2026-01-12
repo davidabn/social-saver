@@ -237,7 +237,9 @@ export async function renderImageRightLayout(
 
   // 6. Desenha linha separadora (opcional) - abaixo do body
   if (decorations.separatorLine) {
-    const separatorY = bodyEndY + 30
+    const separatorY = layoutPositions?.separatorY !== undefined
+      ? percentToPixel(layoutPositions.separatorY, 'height')
+      : bodyEndY + 30
     drawSeparatorLine(
       ctx,
       separatorY,

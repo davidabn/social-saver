@@ -34,16 +34,25 @@ export function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
   if (url.startsWith('data:')) return url
   if (url.includes('/api/proxy/')) return url
-  // URLs que podem ser acessadas diretamente (não precisam de proxy)
-  if (url.includes('unsplash.com') ||
-      url.includes('pexels.com') ||
-      url.includes('pixabay.com') ||
-      url.includes('supabase.co') ||
-      url.includes('kie.ai') ||            // Kie.ai image generation CDN
-      url.includes('replicate.delivery')    // Common AI image CDN
-  ) {
+  
+  const bypassHosts = [
+    'unsplash.com',
+    'pexels.com',
+    'pixabay.com',
+    'supabase.co',
+    'kie.ai',
+    'aiquickdraw.com',
+    'replicate.delivery',
+    'cloudinary.com',
+    'ytimg.com',
+    'ggpht.com',
+    'googleusercontent.com'
+  ]
+
+  if (bypassHosts.some(host => url.includes(host))) {
     return url
   }
+
   return `${API_URL}/proxy/image?url=${encodeURIComponent(url)}`
 }
 

@@ -274,9 +274,29 @@ export const categoryNames: Record<string, string> = {
   'monospace': 'Monoespaçada'
 }
 
-// Busca uma fonte pelo nome
+// Registro dinâmico de fontes do usuário
+let registeredUserFonts: FontDefinition[] = []
+
+export function registerUserFonts(fonts: any[]) {
+  // Converte formato do banco/hook para FontDefinition
+  const definitions: FontDefinition[] = fonts.map(f => ({
+    name: f.name,
+    family: f.family_name, // Map family_name to family
+    category: 'sans-serif', // Default category
+    weights: [400], // Default weight
+    styles: ['normal'], // Default style
+    source: 'system' // Treat as system/local regarding loading strategy
+  }))
+  registeredUserFonts = definitions
+}
+
+export function getUserFonts(): FontDefinition[] {
+  return registeredUserFonts
+}
+
+// Busca uma fonte pelo nome (sistema, google ou usuário)
 export function getFontByName(name: string): FontDefinition | undefined {
-  return allFonts.find(f => f.name === name)
+  return allFonts.find(f => f.name === name) || registeredUserFonts.find(f => f.name === name)
 }
 
 // Retorna o CSS font-family para uma fonte

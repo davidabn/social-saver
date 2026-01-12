@@ -16,13 +16,36 @@ import {
   Image as ImageIcon,
   Video,
   Layers,
-  Trash2
+  Trash2,
+  Youtube,
+  Music2
 } from 'lucide-react'
 
 const API_URL = 'http://localhost:3001/api'
 
 function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
+  if (url.startsWith('data:')) return url
+  if (url.includes('/api/proxy/')) return url
+
+  const bypassHosts = [
+    'unsplash.com',
+    'pexels.com',
+    'pixabay.com',
+    'supabase.co',
+    'kie.ai',
+    'aiquickdraw.com',
+    'replicate.delivery',
+    'cloudinary.com',
+    'ytimg.com',
+    'ggpht.com',
+    'googleusercontent.com'
+  ]
+
+  if (bypassHosts.some(host => url.includes(host))) {
+    return url
+  }
+
   return `${API_URL}/proxy/image?url=${encodeURIComponent(url)}`
 }
 
@@ -34,7 +57,7 @@ export function Feed() {
 
   const { data: profiles } = useProfiles()
   const { data: feedData, isLoading: feedLoading, refetch: refetchFeed } = useFeed(1, selectedProfileId)
-  
+
   const addProfileMutation = useAddProfile()
   const refreshFeedMutation = useRefreshFeed()
   const deleteProfileMutation = useDeleteProfile()
@@ -63,7 +86,9 @@ export function Feed() {
     await refreshFeedMutation.mutateAsync()
   }
 
-  const getContentTypeIcon = (type: string) => {
+  const getContentTypeIcon = (type: string, platform?: string) => {
+    if (platform === 'youtube') return <Youtube className="h-4 w-4 text-red-500" />
+    if (platform === 'tiktok') return <Music2 className="h-4 w-4" />
     switch (type) {
       case 'reel': return <Video className="h-4 w-4" />
       case 'carousel': return <Layers className="h-4 w-4" />
@@ -83,8 +108,8 @@ export function Feed() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleRefresh}
               disabled={refreshFeedMutation.isPending}
               className="gap-2"
@@ -112,10 +137,10 @@ export function Feed() {
                   <label className="text-sm font-medium">Nome de Usuário do Instagram</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-muted-foreground">@</span>
-                    <Input 
+                    <Input
                       value={newUsername}
                       onChange={e => setNewUsername(e.target.value)}
-                      placeholder="usuario" 
+                      placeholder="usuario"
                       className="pl-7"
                     />
                   </div>
@@ -131,37 +156,37 @@ export function Feed() {
 
         {/* Profiles Bar */}
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-           <div 
-              className={`flex flex-col items-center gap-2 cursor-pointer min-w-[72px] ${!selectedProfileId ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
-              onClick={() => setSelectedProfileId(undefined)}
-            >
-              <div className={`w-14 h-14 rounded-full border-2 flex items-center justify-center bg-background ${!selectedProfileId ? 'border-primary' : 'border-transparent'}`}>
-                <Grid className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <span className="text-xs font-medium truncate w-full text-center">Todos</span>
+          <div
+            className={`flex flex-col items-center gap-2 cursor-pointer min-w-[72px] ${!selectedProfileId ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
+            onClick={() => setSelectedProfileId(undefined)}
+          >
+            <div className={`w-14 h-14 rounded-full border-2 flex items-center justify-center bg-background ${!selectedProfileId ? 'border-primary' : 'border-transparent'}`}>
+              <Grid className="h-6 w-6 text-muted-foreground" />
             </div>
+            <span className="text-xs font-medium truncate w-full text-center">Todos</span>
+          </div>
 
-            {profiles?.map(profile => (
-              <div 
-                key={profile.id}
-                className={`group relative flex flex-col items-center gap-2 cursor-pointer min-w-[72px] ${selectedProfileId === profile.id ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
-                onClick={() => setSelectedProfileId(profile.id)}
+          {profiles?.map(profile => (
+            <div
+              key={profile.id}
+              className={`group relative flex flex-col items-center gap-2 cursor-pointer min-w-[72px] ${selectedProfileId === profile.id ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
+              onClick={() => setSelectedProfileId(profile.id)}
+            >
+              <Avatar className={`w-14 h-14 border-2 ${selectedProfileId === profile.id ? 'border-primary' : 'border-transparent'}`}>
+                <AvatarImage src={profile.avatar_url || undefined} />
+                <AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <span className="text-xs font-medium truncate w-full text-center">@{profile.username}</span>
+
+              <button
+                className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                onClick={(e) => handleDeleteProfile(profile.id, e)}
+                title="Remover perfil"
               >
-                <Avatar className={`w-14 h-14 border-2 ${selectedProfileId === profile.id ? 'border-primary' : 'border-transparent'}`}>
-                  <AvatarImage src={profile.avatar_url || undefined} />
-                  <AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="text-xs font-medium truncate w-full text-center">@{profile.username}</span>
-                
-                <button 
-                  className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                  onClick={(e) => handleDeleteProfile(profile.id, e)}
-                  title="Remover perfil"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
         </div>
 
         {/* Feed Grid */}
@@ -176,8 +201,8 @@ export function Feed() {
             </div>
             <h3 className="text-lg font-medium">Nenhum post encontrado</h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              {selectedProfileId 
-                ? 'Este perfil ainda nao tem posts monitorados.' 
+              {selectedProfileId
+                ? 'Este perfil ainda nao tem posts monitorados.'
                 : 'Adicione perfis para comecar a ver posts aqui.'}
             </p>
             {!profiles?.length && (
@@ -189,56 +214,56 @@ export function Feed() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {feedData?.data.map((item) => (
-              <div 
-                key={item.id} 
+              <div
+                key={item.id}
                 className="group relative aspect-[9/16] bg-black rounded-lg overflow-hidden cursor-pointer border shadow-sm hover:shadow-md transition-all"
                 onClick={() => setSelectedItem(item)}
               >
                 {/* Media Thumbnail */}
-                <img 
-                  src={getProxyImageUrl(item.thumbnail_url) || '/placeholder.png'} 
+                <img
+                  src={getProxyImageUrl(item.thumbnail_url) || '/placeholder.png'}
                   alt={item.caption || 'Post thumbnail'}
                   className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                 />
-                
+
                 {/* Overlays */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 opacity-60 group-hover:opacity-80 transition-opacity" />
-                
+
                 {/* Top Info */}
                 <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-white">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-6 w-6 border border-white/20">
-                       {/* Use item.profile.avatar_url if populated in query (needs join) or fallback */}
-                       <AvatarImage src={item.profile?.avatar_url || undefined} />
-                       <AvatarFallback className="text-[10px] bg-black/50">
-                          {item.profile?.username?.charAt(0).toUpperCase() || '?'}
-                       </AvatarFallback>
+                      {/* Use item.profile.avatar_url if populated in query (needs join) or fallback */}
+                      <AvatarImage src={item.profile?.avatar_url || undefined} />
+                      <AvatarFallback className="text-[10px] bg-black/50">
+                        {item.profile?.username?.charAt(0).toUpperCase() || '?'}
+                      </AvatarFallback>
                     </Avatar>
                     <span className="text-xs font-medium drop-shadow-md truncate max-w-[100px]">
                       @{item.profile?.username || 'user'}
                     </span>
                   </div>
                   <div className="bg-black/40 p-1 rounded text-white backdrop-blur-sm">
-                    {getContentTypeIcon(item.content_type)}
+                    {getContentTypeIcon(item.content_type, item.platform)}
                   </div>
                 </div>
 
                 {/* Bottom Info */}
                 <div className="absolute bottom-3 left-3 right-3 text-white space-y-1">
-                   {item.caption && (
-                     <p className="text-xs line-clamp-2 opacity-90 mb-2">
-                       {item.caption}
-                     </p>
-                   )}
-                   
-                   {item.is_saved ? (
-                     <div className="inline-flex items-center gap-1 text-[10px] bg-green-500/20 text-green-200 px-2 py-0.5 rounded-full border border-green-500/30">
-                       <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                       Salvo
-                     </div>
-                   ) : (
-                      <span className="text-[10px] text-white/60">Clique para ver</span>
-                   )}
+                  {item.caption && (
+                    <p className="text-xs line-clamp-2 opacity-90 mb-2">
+                      {item.caption}
+                    </p>
+                  )}
+
+                  {item.is_saved ? (
+                    <div className="inline-flex items-center gap-1 text-[10px] bg-green-500/20 text-green-200 px-2 py-0.5 rounded-full border border-green-500/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                      Salvo
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-white/60">Clique para ver</span>
+                  )}
                 </div>
               </div>
             ))}

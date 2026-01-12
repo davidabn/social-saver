@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { CarouselDesign } from '@/types/carousel'
+import type { CarouselDesign, CarouselSlide } from '@/types/carousel'
 import type { HeaderTexts } from '@/types/template'
 import type { ColorPalette } from '@/templates/palettes'
 
@@ -34,12 +34,16 @@ export interface SavedCarousel {
   updated_at: string
 }
 
-// Tipo para listagem (sem data completo)
+// Tipo para listagem (com dados para thumbnail)
 export interface CarouselListItem {
   id: string
   name: string
   created_at: string
   updated_at: string
+  firstSlide: CarouselSlide | null
+  templateId: string | null
+  headerTexts: HeaderTexts | null
+  customPalette: ColorPalette | null
 }
 
 /**

@@ -148,6 +148,7 @@ export {
   loadImage,
   percentToPixel,
   createFontString,
+  createCondensedFontString,
   createCustomFontString,
   drawProfileBranding,
   renderRichText

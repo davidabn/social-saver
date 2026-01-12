@@ -1,38 +1,38 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { Bookmark, Image, Video, Grid, Tag, Clock, Settings, Layers, User, Rss, PenTool } from 'lucide-react'
+import { Bookmark, Image, Video, Grid, Settings, Layers, User, Rss, PenTool, Youtube, Instagram, Music2, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-const filterItems = [
-  { icon: <Grid className="h-4 w-4" />, label: 'Todos', value: 'all' },
-  { icon: <Layers className="h-4 w-4" />, label: 'Carrosséis', value: 'carousel' },
-  { icon: <Image className="h-4 w-4" />, label: 'Posts', value: 'post' },
-  { icon: <Video className="h-4 w-4" />, label: 'Vídeos', value: 'reel' },
-  { icon: <Bookmark className="h-4 w-4" />, label: 'Colecoes', value: 'collections' },
-  { icon: <Tag className="h-4 w-4" />, label: 'Tags', value: 'tags' },
-  { icon: <Clock className="h-4 w-4" />, label: 'Recentes', value: 'recent' },
-]
+
 
 const navItems = [
   { icon: <Grid className="h-4 w-4" />, label: 'Dashboard', path: '/dashboard' },
   { icon: <PenTool className="h-4 w-4" />, label: 'Design Carousel', path: '/carousel' },
   { icon: <Layers className="h-4 w-4" />, label: 'Meus Carrosséis', path: '/my-carousels' },
-  { icon: <Bookmark className="h-4 w-4" />, label: 'Colecoes', path: '/collections' },
+  { icon: <Bookmark className="h-4 w-4" />, label: 'Coleções', path: '/collections' },
   { icon: <Rss className="h-4 w-4" />, label: 'Feed', path: '/feed' },
   { icon: <User className="h-4 w-4" />, label: 'Persona', path: '/persona' },
-  { icon: <Settings className="h-4 w-4" />, label: 'Configuracoes', path: '/settings' },
+  { icon: <Settings className="h-4 w-4" />, label: 'Configurações', path: '/settings' },
 ]
 
 export function Sidebar() {
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const currentFilter = searchParams.get('filter') || 'all'
+  const currentPlatform = searchParams.get('platform') || 'all'
 
-  const handleFilterClick = (value: string) => {
+  const handleFilterClick = (platform: string, type: string = 'all') => {
     const newParams = new URLSearchParams(searchParams)
-    if (value === 'all') {
+
+    if (platform === 'all') {
+      newParams.delete('platform')
       newParams.delete('filter')
     } else {
-      newParams.set('filter', value)
+      newParams.set('platform', platform)
+      if (type === 'all') {
+        newParams.delete('filter')
+      } else {
+        newParams.set('filter', type)
+      }
     }
     setSearchParams(newParams)
   }
@@ -60,24 +60,75 @@ export function Sidebar() {
         {location.pathname === '/dashboard' && (
           <>
             <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 mt-6">Filtros</p>
-            {filterItems.map((item) => {
-              const isActive = item.value === currentFilter || (item.value === 'all' && !searchParams.get('filter'))
-              // Disable collections, tags, recent for now as they are not implemented in backend filtering yet logic
-              const isDisabled = ['collections', 'tags', 'recent'].includes(item.value)
-              
-              return (
+
+            <Button
+              variant={currentPlatform === 'all' ? 'secondary' : 'ghost'}
+              className="w-full justify-start gap-3"
+              onClick={() => handleFilterClick('all')}
+            >
+              <Grid className="h-4 w-4" />
+              Todos
+            </Button>
+
+            <Button
+              variant={currentPlatform === 'instagram' && currentFilter === 'all' ? 'secondary' : 'ghost'}
+              className="w-full justify-start gap-3"
+              onClick={() => handleFilterClick('instagram')}
+            >
+              <Instagram className="h-4 w-4" />
+              Instagram
+              {currentPlatform === 'instagram' ? <ChevronDown className="ml-auto h-3 w-3" /> : <ChevronRight className="ml-auto h-3 w-3" />}
+            </Button>
+
+            {currentPlatform === 'instagram' && (
+              <div className="ml-4 pl-4 border-l space-y-1 mt-1 mb-2">
                 <Button
-                  key={item.label}
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className="w-full justify-start gap-3"
-                  onClick={() => !isDisabled && handleFilterClick(item.value)}
-                  disabled={isDisabled}
+                  variant={currentFilter === 'post' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="w-full justify-start gap-3 h-8 text-xs text-muted-foreground"
+                  onClick={() => handleFilterClick('instagram', 'post')}
                 >
-                  {item.icon}
-                  {item.label}
+                  <Image className="h-3 w-3" />
+                  Posts
                 </Button>
-              )
-            })}
+                <Button
+                  variant={currentFilter === 'reel' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="w-full justify-start gap-3 h-8 text-xs text-muted-foreground"
+                  onClick={() => handleFilterClick('instagram', 'reel')}
+                >
+                  <Video className="h-3 w-3" />
+                  Reels
+                </Button>
+                <Button
+                  variant={currentFilter === 'carousel' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="w-full justify-start gap-3 h-8 text-xs text-muted-foreground"
+                  onClick={() => handleFilterClick('instagram', 'carousel')}
+                >
+                  <Layers className="h-3 w-3" />
+                  Carrosséis
+                </Button>
+              </div>
+            )}
+
+            <Button
+              variant={currentPlatform === 'youtube' ? 'secondary' : 'ghost'}
+              className="w-full justify-start gap-3"
+              onClick={() => handleFilterClick('youtube')}
+            >
+              <Youtube className="h-4 w-4" />
+              YouTube
+            </Button>
+
+            <Button
+              variant={currentPlatform === 'tiktok' ? 'secondary' : 'ghost'}
+              className="w-full justify-start gap-3"
+              onClick={() => handleFilterClick('tiktok')}
+            >
+              <Music2 className="h-4 w-4" />
+              TikTok
+            </Button>
           </>
         )}
       </nav>

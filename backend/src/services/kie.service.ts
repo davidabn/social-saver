@@ -6,7 +6,7 @@ const KIE_API_BASE = 'https://api.kie.ai/api/v1'
 const SUPABASE_BUCKET = 'carousel-images'
 
 // Modelos suportados
-type ImageModel = 'flux-2/pro-text-to-image' | 'gpt-image/1.5-text-to-image'
+type ImageModel = 'flux-2/pro-text-to-image' | 'gpt-image/1.5-text-to-image' | 'nano-banana-pro'
 
 interface ImageGenerationOptions {
   model?: ImageModel
@@ -55,9 +55,14 @@ export class KieService {
     const model = options?.model || 'flux-2/pro-text-to-image'
 
     // Input diferente baseado no modelo
-    const input = model === 'gpt-image/1.5-text-to-image'
-      ? { prompt, aspect_ratio: '1:1', quality: 'medium' }
-      : { prompt, aspect_ratio: '1:1', resolution: '1K' }
+    let input: any
+    if (model === 'gpt-image/1.5-text-to-image') {
+      input = { prompt, aspect_ratio: '1:1', quality: 'medium' }
+    } else if (model === 'nano-banana-pro') {
+      input = { prompt, aspect_ratio: '1:1', resolution: '1K', output_format: 'png' }
+    } else {
+      input = { prompt, aspect_ratio: '1:1', resolution: '1K' }
+    }
 
     console.log(`[Kie.ai] Creating image task with model "${model}" for prompt: "${prompt.substring(0, 100)}..."`)
 

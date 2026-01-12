@@ -26,7 +26,10 @@ export function AddContentModal({ open, onOpenChange, defaultCollectionId: _defa
 
   const validateUrl = (url: string): boolean => {
     const instagramRegex = /^https?:\/\/(www\.)?(instagram\.com|instagr\.am)\/(p|reel|reels|tv)\/[\w-]+/i
-    return instagramRegex.test(url)
+    const youtubeRegex = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/(watch\?v=|shorts\/|live\/|embed\/)?[\w-]+/i
+    // Matches standard tiktok.com/@user/video/ID and short links like vm.tiktok.com or vt.tiktok.com
+    const tiktokRegex = /^https?:\/\/(www\.|vm\.|vt\.)?tiktok\.com\//i
+    return instagramRegex.test(url) || youtubeRegex.test(url) || tiktokRegex.test(url)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,7 +42,7 @@ export function AddContentModal({ open, onOpenChange, defaultCollectionId: _defa
     }
 
     if (!validateUrl(url)) {
-      setError('URL inválida. Use um link de post, reel ou IGTV do Instagram')
+      setError('URL inválida. Use um link do Instagram, YouTube ou TikTok')
       return
     }
 
@@ -67,7 +70,7 @@ export function AddContentModal({ open, onOpenChange, defaultCollectionId: _defa
         <DialogHeader>
           <DialogTitle>Adicionar Conteúdo</DialogTitle>
           <DialogDescription>
-            Cole o link de um post, reel ou IGTV do Instagram
+            Cole o link de um post do Instagram, vídeo do YouTube ou TikTok
           </DialogDescription>
         </DialogHeader>
 
@@ -82,17 +85,17 @@ export function AddContentModal({ open, onOpenChange, defaultCollectionId: _defa
             {createContent.isPending && (
               <div className="p-3 text-sm text-blue-600 bg-blue-50 rounded-md flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Buscando dados do Instagram... Isso pode levar alguns segundos.
+                Buscando dados... Isso pode levar alguns segundos.
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="url">URL do Instagram</Label>
+              <Label htmlFor="url">URL do Conteúdo</Label>
               <div className="relative">
                 <LinkIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="url"
-                  placeholder="https://www.instagram.com/reel/..."
+                  placeholder="Link do Instagram, YouTube ou TikTok..."
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="pl-10"
@@ -100,7 +103,7 @@ export function AddContentModal({ open, onOpenChange, defaultCollectionId: _defa
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Formatos aceitos: instagram.com/p/..., instagram.com/reel/..., instagram.com/tv/...
+                Suporta: Instagram, YouTube e TikTok
               </p>
             </div>
           </div>

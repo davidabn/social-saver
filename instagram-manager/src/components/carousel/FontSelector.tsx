@@ -18,6 +18,7 @@ import {
   type FontDefinition
 } from '@/templates/fonts'
 import { useFonts } from '@/hooks/useFonts'
+import { useUserFonts } from '@/hooks/useUserFonts'
 
 interface FontSelectorProps {
   label: string
@@ -45,6 +46,7 @@ export function FontSelector({
   defaultStyle = 'normal'
 }: FontSelectorProps) {
   const { loadFont } = useFonts()
+  const { data: userFonts } = useUserFonts()
 
   // Fonte atual (selecionada ou default)
   const currentFontName = selectedFont || defaultFont
@@ -98,6 +100,37 @@ export function FontSelector({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56 max-h-80 overflow-y-auto">
+            {/* Fontes do Usuário */}
+            {userFonts && userFonts.length > 0 && (
+              <div>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Minhas Fontes
+                </DropdownMenuLabel>
+                {userFonts.map(font => (
+                  <DropdownMenuItem
+                    key={font.id}
+                    onClick={() => {
+                      onFontChange(font.name)
+                      onWeightChange(400)
+                      onStyleChange('normal')
+                    }}
+                    className={font.name === currentFontName ? 'bg-accent' : ''}
+                  >
+                    <span
+                      style={{
+                        fontFamily: font.family_name,
+                        fontWeight: 400
+                      }}
+                      className="truncate"
+                    >
+                      {font.name}
+                    </span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">U</span>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </div>
+            )}
             {Object.entries(fontsByCategory).map(([category, fonts]) => {
               if (fonts.length === 0) return null
               return (
@@ -239,6 +272,7 @@ export function FontSelectorCompact({
   defaultStyle = 'normal'
 }: FontSelectorProps) {
   const { loadFont } = useFonts()
+  const { data: userFonts } = useUserFonts()
 
   const currentFontName = selectedFont || defaultFont
   const currentWeight = selectedWeight || defaultWeight
@@ -259,7 +293,7 @@ export function FontSelectorCompact({
       <div className="flex gap-1">
         {/* Font Family Select */}
         <select
-          className="flex-1 h-7 text-xs rounded border bg-background px-2"
+          className="flex-1 h-7 text-xs rounded border bg-background px-2 min-w-0"
           value={currentFontName}
           onChange={(e) => {
             const font = getFontByName(e.target.value)
@@ -270,6 +304,21 @@ export function FontSelectorCompact({
           }}
           style={{ fontFamily: currentFontDef?.family }}
         >
+          {/* Fontes do Usuário */}
+          {userFonts && userFonts.length > 0 && (
+            <optgroup label="Minhas Fontes">
+              {userFonts.map(font => (
+                <option
+                  key={font.id}
+                  value={font.name}
+                  style={{ fontFamily: font.family_name }}
+                >
+                  {font.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+
           {Object.entries(fontsByCategory).map(([category, fonts]) => {
             if (fonts.length === 0) return null
             return (
@@ -302,11 +351,10 @@ export function FontSelectorCompact({
         {/* Italic Toggle */}
         <button
           type="button"
-          className={`w-7 h-7 rounded border flex items-center justify-center ${
-            currentStyle === 'italic'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-background'
-          } ${!supportsItalic ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`w-7 h-7 rounded border flex items-center justify-center ${currentStyle === 'italic'
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-background'
+            } ${!supportsItalic ? 'opacity-50 cursor-not-allowed' : ''}`}
           disabled={!supportsItalic}
           onClick={() => onStyleChange(currentStyle === 'italic' ? 'normal' : 'italic')}
         >

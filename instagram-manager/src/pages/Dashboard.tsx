@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Bookmark, Loader2, Heart, MessageCircle, Play, Trash2, ExternalLink, Calendar, FileText, Image, Layers } from 'lucide-react'
+import { Plus, Bookmark, Loader2, Heart, MessageCircle, Play, Trash2, ExternalLink, Calendar, FileText, Image, Layers, Youtube, Music2 } from 'lucide-react'
 import { Layout } from '@/components/layout/Layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,6 +15,27 @@ const API_URL = 'http://localhost:3001/api'
 
 function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
+  if (url.startsWith('data:')) return url
+  if (url.includes('/api/proxy/')) return url
+
+  const bypassHosts = [
+    'unsplash.com',
+    'pexels.com',
+    'pixabay.com',
+    'supabase.co',
+    'kie.ai',
+    'aiquickdraw.com',
+    'replicate.delivery',
+    'cloudinary.com',
+    'ytimg.com',
+    'ggpht.com',
+    'googleusercontent.com'
+  ]
+
+  if (bypassHosts.some(host => url.includes(host))) {
+    return url
+  }
+
   return `${API_URL}/proxy/image?url=${encodeURIComponent(url)}`
 }
 
@@ -61,26 +82,32 @@ function ContentCard({ content, onDelete, onClick }: { content: SavedContent; on
           </div>
         )}
 
-        {content.content_type === 'reel' && (
-          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+        {content.platform === 'youtube' ? (
+          <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1 shadow-sm">
+            <Youtube className="h-3 w-3" />
+            Youtube
+          </div>
+        ) : content.platform === 'tiktok' ? (
+          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1 shadow-sm">
+            <Music2 className="h-3 w-3" />
+            TikTok
+          </div>
+        ) : content.content_type === 'reel' ? (
+          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1 shadow-sm">
             <Play className="h-3 w-3" />
             Reel
           </div>
-        )}
-
-        {content.content_type === 'post' && (
-          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+        ) : content.content_type === 'post' ? (
+          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1 shadow-sm">
             <Image className="h-3 w-3" />
             Post
           </div>
-        )}
-
-        {content.content_type === 'carousel' && (
-          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+        ) : content.content_type === 'carousel' ? (
+          <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1 shadow-sm">
             <Layers className="h-3 w-3" />
             Carrossel
           </div>
-        )}
+        ) : null}
 
 
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -88,8 +115,9 @@ function ContentCard({ content, onDelete, onClick }: { content: SavedContent; on
             size="sm"
             variant="secondary"
             onClick={(e) => { e.stopPropagation(); window.open(content.instagram_url, '_blank') }}
+            title={content.platform === 'youtube' ? 'Abrir no Youtube' : 'Abrir no Instagram'}
           >
-            <ExternalLink className="h-4 w-4" />
+            {content.platform === 'youtube' ? <Youtube className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
           </Button>
           <Button
             size="sm"
@@ -145,7 +173,7 @@ function ContentCard({ content, onDelete, onClick }: { content: SavedContent; on
             <Calendar className="h-3 w-3" />
             {formatDate(content.saved_at)}
           </span>
-          {content.content_type === 'reel' && (
+          {(content.content_type === 'reel' || content.platform === 'youtube') && (
             <span className="flex items-center gap-1" title={`Transcrição: ${content.transcription_status}`}>
               <FileText className="h-3 w-3" />
               {content.transcription_status === 'completed' && (
@@ -171,13 +199,18 @@ function ContentCard({ content, onDelete, onClick }: { content: SavedContent; on
 export function Dashboard() {
   const [searchParams] = useSearchParams()
   const typeFilter = searchParams.get('filter') as ContentFilters['filter']
-  
+  const platformFilter = searchParams.get('platform') as ContentFilters['platform']
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedContentId, setSelectedContentId] = useState<string | null>(null)
   const [filters, setFilters] = useState<ContentFilters>({})
-  
+
   // Merge local filters with URL filter
-  const activeFilters = { ...filters, filter: typeFilter || undefined }
+  const activeFilters = {
+    ...filters,
+    filter: typeFilter || undefined,
+    platform: platformFilter || undefined
+  }
   const { data, isLoading, error } = useContents(activeFilters)
   const deleteContent = useDeleteContent()
 
@@ -201,8 +234,11 @@ export function Dashboard() {
             <h1 className="text-2xl font-bold">Meus Conteúdos</h1>
             <p className="text-muted-foreground">
               {hasContents
-                ? `${data?.pagination.total} conteúdo(s) ${hasFilters ? 'encontrado(s)' : 'salvo(s)'}`
-                : hasFilters ? 'Nenhum conteúdo encontrado' : 'Gerencie seus conteúdos salvos do Instagram'}
+                ? `${data?.pagination.total} ${data?.pagination.total === 1
+                  ? `conteúdo ${hasFilters ? 'encontrado' : 'salvo'}`
+                  : `conteúdos ${hasFilters ? 'encontrados' : 'salvos'}`
+                }`
+                : hasFilters ? 'Nenhum conteúdo encontrado' : 'Gerencie seus conteúdos salvos'}
             </p>
           </div>
           <Button onClick={() => setIsModalOpen(true)}>

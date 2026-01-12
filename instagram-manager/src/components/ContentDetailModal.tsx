@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Dialog,
@@ -26,7 +26,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Palette
+  Palette,
+  Youtube,
+  Music2
 } from 'lucide-react'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
@@ -50,6 +52,27 @@ function getProxyVideoUrl(url: string | null): string | null {
 
 function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
+  if (url.startsWith('data:')) return url
+  if (url.includes('/api/proxy/')) return url
+
+  const bypassHosts = [
+    'unsplash.com',
+    'pexels.com',
+    'pixabay.com',
+    'supabase.co',
+    'kie.ai',
+    'aiquickdraw.com',
+    'replicate.delivery',
+    'cloudinary.com',
+    'ytimg.com',
+    'ggpht.com',
+    'googleusercontent.com'
+  ]
+
+  if (bypassHosts.some(host => url.includes(host))) {
+    return url
+  }
+
   return `${API_URL}/proxy/image?url=${encodeURIComponent(url)}`
 }
 
@@ -74,6 +97,15 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
   const [generatedScript, setGeneratedScript] = useState<string | null>(null)
   const [scriptType, setScriptType] = useState<'post' | 'reel' | 'carousel'>('reel')
   const [scriptCopied, setScriptCopied] = useState(false)
+
+  // Initialize generated script from saved content
+  useEffect(() => {
+    if (content?.generated_script) {
+      setGeneratedScript(content.generated_script)
+    } else {
+      setGeneratedScript(null)
+    }
+  }, [content])
 
   const handleCopyTranscription = async () => {
     if (content?.transcription?.text) {
@@ -115,7 +147,7 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
     }
   }
 
-  const handleOpenInstagram = () => {
+  const handleOpenExternal = () => {
     if (content?.instagram_url) {
       window.open(content.instagram_url, '_blank')
     }
@@ -124,9 +156,9 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
   // Unified media list logic
   const getMediaList = () => {
     if (!content) return []
-    
-    // If it's a Reel with a video URL, treat it as a single video item
-    if (content.content_type === 'reel' && content.video_url) {
+
+    // If it's a Reel or YouTube or TikTok with a video URL, treat it as a single video item
+    if ((content.content_type === 'reel' || content.platform === 'youtube' || content.platform === 'tiktok') && content.video_url) {
       return [{
         type: 'video' as const,
         url: content.video_url,
@@ -141,10 +173,10 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
 
     // Fallback to image_urls (single post or simple carousel)
     if (content.image_urls && content.image_urls.length > 0) {
-      return content.image_urls.map(url => ({ 
-        type: 'image' as const, 
-        url, 
-        thumbnail: undefined 
+      return content.image_urls.map(url => ({
+        type: 'image' as const,
+        url,
+        thumbnail: undefined
       }))
     }
 
@@ -164,18 +196,18 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
         const proxyUrl = item.type === 'video' ? getProxyVideoUrl(item.url) : getProxyImageUrl(item.url)
         const ext = item.type === 'video' ? 'mp4' : 'jpg'
         const filename = `${content.post_id || 'instagram'}.${ext}`
-        
+
         if (proxyUrl) {
           await saveAs(proxyUrl, filename)
         }
       } else {
         // Download zip of mixed media
         const zip = new JSZip()
-        
+
         await Promise.all(mediaList.map(async (item, index) => {
           const proxyUrl = item.type === 'video' ? getProxyVideoUrl(item.url) : getProxyImageUrl(item.url)
           const ext = item.type === 'video' ? 'mp4' : 'jpg'
-          
+
           if (proxyUrl) {
             try {
               const response = await fetch(proxyUrl)
@@ -205,11 +237,13 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
     const max = mediaList.length - 1
     setCurrentImageIndex((prev) => (prev < max ? prev + 1 : prev))
   }
-  
+
   const currentMedia = mediaList[currentImageIndex]
-  
+
   const getDownloadLabel = () => {
-    if (content?.content_type === 'reel') return 'Baixar Vídeo'
+    if (content?.platform === 'youtube') return 'Baixar do Youtube'
+    if (content?.platform === 'tiktok') return 'Baixar TikTok'
+    if (content?.content_type === 'reel') return 'Baixar Reel'
     if (content?.content_type === 'carousel') return 'Baixar Mídia'
     return 'Baixar Imagem'
   }
@@ -222,19 +256,19 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
       }
       onOpenChange(val)
     }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 h-full">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-12 text-destructive">
+          <div className="flex flex-col items-center justify-center py-12 text-destructive h-full">
             <AlertCircle className="h-8 w-8 mb-2" />
             <p>Erro ao carregar conteudo</p>
           </div>
         ) : content ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="flex-shrink-0 p-6 pb-2">
               <DialogTitle className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={content.author_profile_pic || undefined} />
@@ -258,9 +292,9 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
               </DialogTitle>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-              {/* Video Player / Image Carousel */}
-              <div className="relative aspect-[9/16] bg-black rounded-lg overflow-hidden group flex items-center justify-center">
+            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-6 p-6 pt-2 overflow-hidden">
+              {/* Left Column: Video/Image - Fits available height */}
+              <div className="h-full w-full bg-black rounded-lg flex items-center justify-center overflow-hidden relative group">
                 {currentMedia ? (
                   <>
                     {currentMedia.type === 'video' ? (
@@ -277,7 +311,7 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                         className="w-full h-full object-contain transition-opacity duration-300"
                       />
                     )}
-                    
+
                     {/* Carousel Controls */}
                     {mediaList.length > 1 && (
                       <>
@@ -299,17 +333,16 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                         >
                           <ChevronRight className="h-6 w-6" />
                         </Button>
-                        
+
                         {/* Dots Indicator */}
                         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                           {mediaList.map((_, idx) => (
                             <div
                               key={idx}
-                              className={`h-1.5 rounded-full transition-all ${
-                                idx === currentImageIndex 
-                                  ? 'w-4 bg-white' 
+                              className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex
+                                  ? 'w-4 bg-white'
                                   : 'w-1.5 bg-white/50'
-                              }`}
+                                }`}
                             />
                           ))}
                         </div>
@@ -323,60 +356,60 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                 )}
               </div>
 
-              {/* Info Panel */}
-              <div className="flex flex-col gap-4">
-                {/* Caption */}
+              {/* Right Column: Info - Flex layout, no outer scroll */}
+              <div className="flex flex-col gap-3 h-full min-h-0 overflow-hidden">
+                {/* Caption - Fixed max height scrollable */}
                 {content.caption && (
-                  <div className="bg-muted/50 rounded-lg p-4 max-h-40 overflow-y-auto">
+                  <div className="bg-muted/50 rounded-lg p-3 max-h-24 shrink-0 overflow-y-auto">
                     <p className="text-sm whitespace-pre-wrap">{content.caption}</p>
                   </div>
                 )}
 
-                {/* Metrics */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-3">
-                    <Heart className="h-5 w-5 text-red-500" />
+                {/* Metrics - Fixed height */}
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2 flex-1 min-w-[110px]">
+                    <Heart className="h-4 w-4 text-red-500" />
                     <div>
-                      <p className="text-lg font-semibold">{formatNumber(content.likes_count)}</p>
-                      <p className="text-xs text-muted-foreground">Curtidas</p>
+                      <p className="text-sm font-semibold">{formatNumber(content.likes_count)}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Curtidas</p>
                     </div>
                   </div>
 
-                  <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-3">
-                    <MessageCircle className="h-5 w-5 text-blue-500" />
+                  <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2 flex-1 min-w-[110px]">
+                    <MessageCircle className="h-4 w-4 text-blue-500" />
                     <div>
-                      <p className="text-lg font-semibold">{formatNumber(content.comments_count)}</p>
-                      <p className="text-xs text-muted-foreground">Comentarios</p>
+                      <p className="text-sm font-semibold">{formatNumber(content.comments_count)}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Comentários</p>
                     </div>
                   </div>
 
                   {content.views_count !== null && (
-                    <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-3">
-                      <Eye className="h-5 w-5 text-green-500" />
+                    <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2 flex-1 min-w-[110px]">
+                      <Eye className="h-4 w-4 text-green-500" />
                       <div>
-                        <p className="text-lg font-semibold">{formatNumber(content.views_count)}</p>
-                        <p className="text-xs text-muted-foreground">Visualizacoes</p>
+                        <p className="text-sm font-semibold">{formatNumber(content.views_count)}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">Views</p>
                       </div>
                     </div>
                   )}
 
                   {content.plays_count !== null && (
-                    <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-3">
-                      <Play className="h-5 w-5 text-purple-500" />
+                    <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2 flex-1 min-w-[110px]">
+                      <Play className="h-4 w-4 text-purple-500" />
                       <div>
-                        <p className="text-lg font-semibold">{formatNumber(content.plays_count)}</p>
-                        <p className="text-xs text-muted-foreground">Reproducoes</p>
+                        <p className="text-sm font-semibold">{formatNumber(content.plays_count)}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">Plays</p>
                       </div>
                     </div>
                   )}
                 </div>
 
                 {/* Transcription (Now for all types) */}
-                <div className="flex-1 min-h-0 flex flex-col">
-                  <div className="flex items-center justify-between mb-2">
+                <div className="flex-1 min-h-[30px] flex flex-col overflow-hidden shrink">
+                  <div className="flex items-center justify-between mb-1 shrink-0">
                     <h3 className="font-semibold flex items-center gap-2">
                       <FileText className="h-4 w-4" />
-                      Transcricao
+                      Transcrição
                     </h3>
                     {content.transcription?.text && (
                       <Button
@@ -399,28 +432,28 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                       </Button>
                     )}
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-4 flex-1 overflow-y-auto min-h-[100px]">
+                  <div className="bg-muted/50 rounded-lg p-4 flex-1 overflow-y-auto">
                     {content.transcription_status === 'completed' && content.transcription?.text ? (
                       <p className="text-sm whitespace-pre-wrap">{content.transcription.text}</p>
                     ) : content.transcription_status === 'processing' ? (
                       <div className="flex items-center gap-2 text-muted-foreground h-full justify-center">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Processando transcricao...</span>
+                        <span className="text-sm">Processando transcrição...</span>
                       </div>
                     ) : content.transcription_status === 'failed' ? (
                       <div className="flex items-center justify-center h-full text-destructive">
-                        <p className="text-sm">Falha na transcricao</p>
+                        <p className="text-sm">Falha na transcrição</p>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted-foreground">
-                        <p className="text-sm">Nenhuma transcricao disponivel</p>
+                        <p className="text-sm">Nenhuma transcrição disponível</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Script Generation */}
-                <div className="flex flex-col gap-2 pt-4 border-t">
+                {/* Script Generation - Fixed height footer in right column */}
+                <div className="flex flex-col gap-2 pt-2 border-t shrink-0">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
@@ -428,7 +461,6 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                     </h3>
                   </div>
 
-                  {/* Type Selector */}
                   <div className="flex gap-2">
                     <Button
                       variant={scriptType === 'post' ? 'secondary' : 'outline'}
@@ -456,7 +488,6 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                     </Button>
                   </div>
 
-                  {/* Generate Button */}
                   <Button
                     onClick={handleGenerateScript}
                     disabled={generateContent.isPending}
@@ -470,49 +501,38 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4" />
-                        Gerar Roteiro de {scriptType === 'post' ? 'Post' : scriptType === 'reel' ? 'Reel' : 'Carrossel'}
+                        Gerar Roteiro de {scriptType === 'post' ? 'Post' : scriptType === 'reel' ? (content?.platform === 'youtube' ? 'Vídeo' : content?.platform === 'tiktok' ? 'TikTok' : 'Reel') : 'Carrossel'}
                       </>
                     )}
                   </Button>
 
                   {/* Generated Script Display */}
                   {generatedScript && (
-                    <div className="mt-2">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="mt-1 flex flex-col gap-1 min-h-0">
+                      <div className="flex items-center justify-between shrink-0 bg-background py-0.5">
                         <span className="text-sm font-medium">Roteiro Gerado</span>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleCopyScript}
-                          className="gap-2"
+                          className="h-7 text-xs gap-1"
                         >
                           {scriptCopied ? (
                             <>
-                              <Check className="h-4 w-4 text-green-500" />
+                              <Check className="h-3 w-3 text-green-500" />
                               Copiado!
                             </>
                           ) : (
                             <>
-                              <Copy className="h-4 w-4" />
+                              <Copy className="h-3 w-3" />
                               Copiar
                             </>
                           )}
                         </Button>
                       </div>
-                      <div className="bg-muted/50 rounded-lg p-4 max-h-60 overflow-y-auto">
-                        <p className="text-sm whitespace-pre-wrap">{generatedScript}</p>
+                      <div className="bg-muted/50 rounded-lg p-2 overflow-y-auto max-h-20 shrink-0">
+                        <p className="text-xs whitespace-pre-wrap">{generatedScript}</p>
                       </div>
-                      {/* Botão Gerar Design - apenas para carousel */}
-                      {scriptType === 'carousel' && (
-                        <Button
-                          onClick={handleGenerateDesign}
-                          className="w-full gap-2 mt-3"
-                          variant="secondary"
-                        >
-                          <Palette className="h-4 w-4" />
-                          Gerar Design do Carrossel
-                        </Button>
-                      )}
                     </div>
                   )}
 
@@ -525,14 +545,13 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-between mt-6 pt-4 border-t">
+            {/* Actions Footer */}
+            <div className="flex justify-between p-6 pt-4 border-t flex-shrink-0 bg-background">
               <div className="flex gap-2">
-                 {/* Download Button */}
                 {mediaList.length > 0 && (
-                  <Button 
-                    variant="outline" 
-                    onClick={handleDownload} 
+                  <Button
+                    variant="outline"
+                    onClick={handleDownload}
                     disabled={isDownloading}
                     className="gap-2"
                   >
@@ -546,10 +565,38 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                 )}
               </div>
 
-              <Button variant="outline" onClick={handleOpenInstagram} className="gap-2">
-                <ExternalLink className="h-4 w-4" />
-                Abrir no Instagram
-              </Button>
+              <div className="flex gap-2">
+                {/* Botão Gerar Design - Agora no rodapé ao lado de Abrir na Plataforma */}
+                {generatedScript && scriptType === 'carousel' && (
+                  <Button
+                    onClick={handleGenerateDesign}
+                    className="gap-2"
+                    variant="secondary"
+                  >
+                    <Palette className="h-4 w-4" />
+                    Gerar Design do Carrossel
+                  </Button>
+                )}
+
+                <Button variant="outline" onClick={handleOpenExternal} className="gap-2">
+                  {content?.platform === 'youtube' ? (
+                    <>
+                      <Youtube className="h-4 w-4 text-red-500" />
+                      Abrir no Youtube
+                    </>
+                  ) : content?.platform === 'tiktok' ? (
+                    <>
+                      <Music2 className="h-4 w-4" />
+                      Abrir no TikTok
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="h-4 w-4" />
+                      Abrir no Instagram
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </>
         ) : null}

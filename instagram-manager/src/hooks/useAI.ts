@@ -81,7 +81,15 @@ export function useUpdatePersona() {
 }
 
 export function useGenerateContent() {
+  const queryClient = useQueryClient()
+  
   return useMutation({
     mutationFn: generateContent,
+    onSuccess: (data, variables) => {
+      // Invalidate the specific content query to reload with saved script
+      queryClient.invalidateQueries({ 
+        queryKey: ['content', variables.contentId] 
+      })
+    }
   })
 }

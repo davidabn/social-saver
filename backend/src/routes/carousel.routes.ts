@@ -12,7 +12,9 @@ import {
   saveCarousel,
   listCarousels,
   getCarousel,
-  deleteCarousel
+  deleteCarousel,
+  listUserImages,
+  getStorageUsage
 } from '../controllers/carousel.controller.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 
@@ -22,7 +24,7 @@ const router = Router()
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 10 * 1024 * 1024 // 10MB limit (Cloudinary Free Plan)
   },
   fileFilter: (_req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
@@ -65,6 +67,12 @@ router.post('/generate-ai-images', generateAIImages)
 // POST /api/carousel/save - Criar ou atualizar carrossel
 router.post('/save', saveCarousel)
 
+// GET /api/carousel/images - Listar imagens do usuário (upload e geradas)
+router.get('/images', listUserImages)
+
+// GET /api/carousel/storage-usage - Consultar uso de armazenamento do Cloudinary
+router.get('/storage-usage', getStorageUsage)
+
 // GET /api/carousel/list - Listar carrosseis do usuário
 router.get('/list', listCarousels)
 
@@ -73,5 +81,7 @@ router.get('/:id', getCarousel)
 
 // DELETE /api/carousel/:id - Deletar carrossel
 router.delete('/:id', deleteCarousel)
+
+
 
 export default router

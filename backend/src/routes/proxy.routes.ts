@@ -18,20 +18,30 @@ router.get('/image', async (req: Request, res: Response) => {
 
     // Validate URL is from Allowed CDN
     const url = new URL(imageUrl)
-    const isAllowedCDN = url.hostname.endsWith('cdninstagram.com') ||
-                           url.hostname.includes('instagram.com') ||
-                           url.hostname.endsWith('fbcdn.net') ||
-                           url.hostname.includes('tiktokcdn.com') ||
+    const isAllowedCDN = url.hostname.includes('instagram.com') ||
+                           url.hostname.includes('cdninstagram.com') ||
+                           url.hostname.includes('fbcdn.net') ||
                            url.hostname.includes('tiktok.com') ||
+                           url.hostname.includes('tiktokcdn') ||
+                           url.hostname.includes('tiktokv.com') ||
+                           url.hostname.includes('muscdn.com') ||
                            url.hostname.includes('byteoversea.com') ||
-                           url.hostname.includes('ibyteimg.com') || // TikTok image CDN
-                           url.hostname.includes('supabase.co') || // Supabase Storage (avatars)
-                           url.hostname.includes('cloudinary.com') // Cloudinary Images
+                           url.hostname.includes('ibyteimg.com') ||
+                           url.hostname.includes('supabase.co') ||
+                           url.hostname.includes('cloudinary.com') ||
+                           url.hostname.includes('apify.com') ||
+                           url.hostname.includes('ytimg.com') ||
+                           url.hostname.includes('ggpht.com') ||
+                           url.hostname.includes('googlevideo.com') ||
+                           url.hostname.includes('youtube.com') ||
+                           url.hostname.includes('youtu.be') ||
+                           url.hostname.includes('googleusercontent.com') ||
+                           url.hostname.includes('google.com')
 
     // console.log('[Proxy] Hostname:', url.hostname, 'Allowed:', isAllowedCDN)
 
     if (!isAllowedCDN) {
-      console.log('[Proxy] Error: URL not allowed')
+      console.log(`[Proxy] Error: URL not allowed - ${url.hostname}`)
       res.status(403).json({ message: 'URL not allowed' })
       return
     }
@@ -44,8 +54,7 @@ router.get('/image', async (req: Request, res: Response) => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'image/webp,image/apng,image/*,video/*,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        // Referer might need to be dynamic or omitted for TikTok
-        // 'Referer': 'https://www.instagram.com/' 
+        'Referer': 'https://www.tiktok.com/' 
       }
     })
 

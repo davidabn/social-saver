@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../lib/supabase.js'
 import { AppError } from '../middleware/errorHandler.js'
 import { perplexityService } from '../services/perplexity.service.js'
 import { kieService } from '../services/kie.service.js'
-import { uploadToCloudinary } from '../services/cloudinary.service.js'
+import { uploadToCloudinary, getCloudinaryUsage } from '../services/cloudinary.service.js'
 import { IMAGE_PROMPT_ENGINEER_SYSTEM } from '../prompts/image-prompt-engineer.js'
 import { HAND_DRAWN_IMAGE_PROMPT_SYSTEM } from '../prompts/hand-drawn-prompt.js'
 import OpenAI from 'openai'
@@ -47,7 +47,8 @@ const generateAIImagesSchema = z.object({
     slideIndex: z.number().int().min(0),
     prompt: z.string().min(1)
   })),
-  templateId: z.string().optional()  // Para selecionar modelo de imagem
+  templateId: z.string().optional(),
+  model: z.enum(['flux-2/pro-text-to-image', 'gpt-image/1.5-text-to-image', 'nano-banana-pro']).optional()
 })
 
 // Initialize OpenAI
@@ -472,6 +473,26 @@ export async function uploadImage(
 
     console.log(`[Carousel] Image uploaded successfully: ${imageUrl}`)
 
+    // Save to user_images table
+    const { error: dbError } = await supabaseAdmin
+      .from('user_images')
+      .insert({
+        user_id: userId,
+        url: imageUrl,
+        type: 'upload',
+        metadata: {
+          originalName: file.originalname,
+          size: file.size,
+          mimeType: file.mimetype
+        }
+      })
+
+    if (dbError) {
+      console.error('[Carousel] Failed to save image to database:', dbError)
+      // Throw error so frontend knows something went wrong, even if Cloudinary upload worked
+      throw new AppError(`Database error: ${dbError.message}`, 500)
+    }
+
     res.json({ url: imageUrl })
   } catch (error) {
     next(error)
@@ -593,12 +614,15 @@ export async function generateAIImages(
     const userId = req.user?.id
     if (!userId) throw new AppError('User not authenticated', 401)
 
-    const { prompts, templateId } = generateAIImagesSchema.parse(req.body)
+    const { prompts, templateId, model: requestedModel } = generateAIImagesSchema.parse(req.body)
 
-    // Selecionar modelo baseado no template
-    const model = templateId === 'hand-drawn'
-      ? 'gpt-image/1.5-text-to-image' as const
-      : 'flux-2/pro-text-to-image' as const
+    // Selecionar modelo baseado no template ou no que foi pedido explicitamente
+    let model = requestedModel
+    if (!model) {
+      model = templateId === 'hand-drawn'
+        ? 'gpt-image/1.5-text-to-image'
+        : 'flux-2/pro-text-to-image'
+    }
 
     console.log(`[Carousel] Generating ${prompts.length} AI images via Kie.ai with model "${model}"...`)
 
@@ -629,6 +653,27 @@ export async function generateAIImages(
     const errorCount = errors.length
 
     console.log(`[Carousel] AI image generation complete: ${successCount} success, ${errorCount} failed`)
+
+    // Save successful images to user_images table
+    if (images.length > 0) {
+      const { error: dbError } = await supabaseAdmin
+        .from('user_images')
+        .insert(
+          images.map(img => ({
+            user_id: userId,
+            url: img.imageUrl,
+            type: 'generated',
+            metadata: {
+              prompt: prompts.find(p => p.slideIndex === img.slideIndex)?.prompt,
+              model
+            }
+          }))
+        )
+
+      if (dbError) {
+        console.error('[Carousel] Failed to save generated images to database:', dbError)
+      }
+    }
 
     res.json({ images, errors, successCount, errorCount })
   } catch (error) {
@@ -720,7 +765,7 @@ export async function listCarousels(
 
     const { data: carousels, error } = await supabaseAdmin
       .from('carousels')
-      .select('id, name, updated_at, created_at')
+      .select('id, name, updated_at, created_at, data')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
 
@@ -729,8 +774,20 @@ export async function listCarousels(
       throw new AppError('Failed to list carousels', 500)
     }
 
-    console.log(`[Carousel] Found ${carousels?.length || 0} carousels`)
-    res.json(carousels || [])
+    // Processar para incluir apenas o primeiro slide e dados necessários para thumbnail
+    const carouselsWithThumbnail = carousels?.map(carousel => ({
+      id: carousel.id,
+      name: carousel.name,
+      updated_at: carousel.updated_at,
+      created_at: carousel.created_at,
+      firstSlide: carousel.data?.design?.slides?.[0] || null,
+      templateId: carousel.data?.templateId || null,
+      headerTexts: carousel.data?.headerTexts || null,
+      customPalette: carousel.data?.customPalette || null
+    }))
+
+    console.log(`[Carousel] Found ${carouselsWithThumbnail?.length || 0} carousels`)
+    res.json(carouselsWithThumbnail || [])
   } catch (error) {
     next(error)
   }
@@ -797,8 +854,59 @@ export async function deleteCarousel(
     }
 
     console.log(`[Carousel] Carousel deleted successfully`)
-    res.json({ success: true })
+    res.status(204).send()
   } catch (error) {
     next(error)
   }
 }
+
+// GET /api/carousel/images - List user images
+export async function listUserImages(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id
+    if (!userId) throw new AppError('User not authenticated', 401)
+
+    console.log(`[Carousel] Listing images for user ${userId}`)
+
+    const { data: images, error } = await supabaseAdmin
+      .from('user_images')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50) // Limit to last 50 images for now
+
+    if (error) {
+      console.error('[Carousel] List images error:', error)
+      throw new AppError('Failed to list images', 500)
+    }
+
+    console.log(`[Carousel] Found ${images?.length || 0} images for user ${userId}`)
+    if (images && images.length > 0) {
+      console.log('[Carousel] First image:', images[0])
+    }
+
+    res.json(images || [])
+  } catch (error) {
+    next(error)
+  }
+}
+
+// GET /api/carousel/storage-usage
+export async function getStorageUsage(
+  _req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const usage = await getCloudinaryUsage();
+    res.json(usage);
+  } catch (error) {
+    console.error('[Carousel] Get storage usage error:', error);
+    next(error);
+  }
+}
+

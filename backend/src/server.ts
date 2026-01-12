@@ -12,6 +12,7 @@ import collectionsRoutes from './routes/collections.routes.js'
 import feedRoutes from './routes/feed.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import carouselRoutes from './routes/carousel.routes.js'
+import fontsRoutes from './routes/fonts.routes.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 
 const app = express()
@@ -37,9 +38,9 @@ const limiter = rateLimit({
 app.use(limiter)
 
 // Body parsing
-app.use(express.json())
-app.use(express.text()) // Support text/plain for webhook
-app.use(express.urlencoded({ extended: true })) // Support form data
+app.use(express.json({ limit: '10mb' }))
+app.use(express.text({ limit: '10mb' })) // Support text/plain for webhook
+app.use(express.urlencoded({ extended: true, limit: '10mb' })) // Support form data
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -55,6 +56,7 @@ app.use('/api/collections', collectionsRoutes)
 app.use('/api/feed', feedRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/carousel', carouselRoutes)
+app.use('/api/fonts', fontsRoutes)
 
 // Error handling
 app.use(notFoundHandler)

@@ -100,6 +100,7 @@ export interface CarouselSlide {
       bodyFontFamily?: string
       bodyFontWeight?: number
       bodyFontStyle?: 'normal' | 'italic'
+      separatorY?: number  // Posição Y da linha separadora em %
     }
   }
 }

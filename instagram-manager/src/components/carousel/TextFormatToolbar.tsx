@@ -8,6 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu'
+import { useUserFonts } from '@/hooks/useUserFonts'
+import { useMemo } from 'react'
 
 // Fontes disponíveis
 const FONTS = [
@@ -62,6 +64,22 @@ export function TextFormatToolbar({
   onColor,
   currentFormat
 }: TextFormatToolbarProps) {
+  const { data: userFonts } = useUserFonts()
+
+  const allFonts = useMemo(() => {
+    const fonts = [...FONTS]
+    if (userFonts && userFonts.length > 0) {
+      const userFontItems = userFonts.map(f => ({
+        name: f.name,
+        label: f.name,
+        family: f.family_name,
+        isCustom: true
+      }))
+      return [...userFontItems, ...fonts]
+    }
+    return fonts
+  }, [userFonts])
+
   return (
     <div
       id="text-format-toolbar"
@@ -122,21 +140,23 @@ export function TextFormatToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
+            side="top"
             align="start"
             className="max-h-64 overflow-y-auto"
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <DropdownMenuLabel>Fonte</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {FONTS.map((font) => (
+            {allFonts.map((font) => (
               <DropdownMenuItem
                 key={font.name}
                 onClick={() => onFont(font.name)}
                 className="cursor-pointer"
-                style={{ fontFamily: font.name }}
+                style={{ fontFamily: (font as any).family || font.name }}
               >
                 <span className={currentFormat.font === font.name ? 'font-bold' : ''}>
                   {font.label}
+                  {(font as any).isCustom && <span className="ml-2 text-[10px] text-muted-foreground text-blue-500">USER</span>}
                 </span>
               </DropdownMenuItem>
             ))}
@@ -162,6 +182,7 @@ export function TextFormatToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
+            side="top"
             align="start"
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
@@ -172,11 +193,10 @@ export function TextFormatToolbar({
                 <button
                   key={color.value}
                   onClick={() => onColor(color.value)}
-                  className={`w-6 h-6 rounded-md border-2 transition-transform hover:scale-110 ${
-                    currentFormat.color === color.value
-                      ? 'border-blue-500 ring-2 ring-blue-200'
-                      : 'border-gray-300'
-                  }`}
+                  className={`w-6 h-6 rounded-md border-2 transition-transform hover:scale-110 ${currentFormat.color === color.value
+                    ? 'border-blue-500 ring-2 ring-blue-200'
+                    : 'border-gray-300'
+                    }`}
                   style={{ backgroundColor: color.value }}
                   title={color.label}
                 />

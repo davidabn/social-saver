@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { CarouselThumbnail } from '@/components/carousel/CarouselThumbnail'
 
 export function MyCarousels() {
   const { data: carousels, isLoading } = useCarouselList()
@@ -58,8 +59,13 @@ export function MyCarousels() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {carousels?.map((carousel) => (
               <Card key={carousel.id} className="p-4 hover:shadow-lg transition-shadow">
-                <div className="aspect-square bg-muted rounded-md mb-3 overflow-hidden flex items-center justify-center">
-                  <span className="text-4xl text-muted-foreground/50">📸</span>
+                <div className="mb-3">
+                  <CarouselThumbnail
+                    firstSlide={carousel.firstSlide}
+                    templateId={carousel.templateId}
+                    headerTexts={carousel.headerTexts}
+                    customPalette={carousel.customPalette}
+                  />
                 </div>
                 <h3 className="font-medium truncate">{carousel.name}</h3>
                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">

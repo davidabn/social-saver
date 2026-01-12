@@ -2,7 +2,7 @@ import type { Request } from 'express'
 
 // Content types
 export type ContentType = 'reel' | 'post' | 'carousel'
-export type Platform = 'instagram' | 'tiktok'
+export type Platform = 'instagram' | 'tiktok' | 'youtube'
 export type TranscriptionStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface CarouselMedia {
@@ -37,6 +37,7 @@ export interface SavedContent {
   is_processed: boolean
   transcription_status: TranscriptionStatus
   collection_id: string | null
+  generated_script: string | null
   created_at: string
   updated_at: string
 }

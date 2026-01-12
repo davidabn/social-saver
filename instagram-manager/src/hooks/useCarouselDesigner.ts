@@ -1,4 +1,5 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import imageCompression from 'browser-image-compression'
 import { supabase } from '@/lib/supabase'
 import type {
   GenerateSlidesResponse,
@@ -186,7 +187,8 @@ async function generateImagePrompts(input: GenerateImagePromptsInput): Promise<I
 // Generate AI images via Kie.ai (Flux 2 Pro or GPT Image 1.5)
 interface GenerateAIImagesInput {
   prompts: { slideIndex: number; prompt: string }[]
-  templateId?: string  // Para selecionar modelo de imagem
+  templateId?: string  // Para selecionar modelo de imagem padrao
+  model?: 'flux-2/pro-text-to-image' | 'gpt-image/1.5-text-to-image' | 'nano-banana-pro'
 }
 
 interface GeneratedImage {
@@ -208,7 +210,8 @@ async function generateAIImages(input: GenerateAIImagesInput): Promise<GenerateA
     headers,
     body: JSON.stringify({
       prompts: input.prompts,
-      templateId: input.templateId
+      templateId: input.templateId,
+      model: input.model
     })
   })
 
@@ -227,14 +230,30 @@ async function uploadImage(file: File): Promise<string> {
     throw new Error('Not authenticated')
   }
 
+  let fileToUpload = file
+
+  // Client-side compression to stay within Cloudinary 10MB limit
+  if (file.size > 1.5 * 1024 * 1024) { // Compress if > 1.5MB
+    const options = {
+      maxSizeMB: 8, // Target 8MB to stay safely under 10MB
+      maxWidthOrHeight: 2560,
+      useWebWorker: true
+    }
+    try {
+      const compressedFile = await imageCompression(file, options)
+      fileToUpload = new File([compressedFile], file.name, { type: file.type })
+    } catch (error) {
+      console.warn('[Upload] Compression failed, using original:', error)
+    }
+  }
+
   const formData = new FormData()
-  formData.append('image', file)
+  formData.append('image', fileToUpload)
 
   const response = await fetch(`${API_URL}/carousel/upload-image`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${session.access_token}`
-      // Note: Don't set Content-Type for FormData - browser sets it with boundary
     },
     body: formData
   })
@@ -246,6 +265,44 @@ async function uploadImage(file: File): Promise<string> {
 
   const data: { url: string } = await response.json()
   return data.url
+}
+
+// Fetch user images
+export interface UserImage {
+  id: string
+  url: string
+  type: 'upload' | 'generated'
+  created_at: string
+  metadata: any
+}
+
+async function fetchUserImages(): Promise<UserImage[]> {
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${API_URL}/carousel/images`, {
+    headers
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to fetch images')
+  }
+
+  return response.json()
+}
+
+// Fetch Cloudinary storage usage
+async function fetchStorageUsage(): Promise<any> {
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${API_URL}/carousel/storage-usage`, {
+    headers
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to fetch storage usage')
+  }
+
+  return response.json()
 }
 
 // Hooks
@@ -280,8 +337,13 @@ export function useParseScriptWithAI() {
 }
 
 export function useUploadImage() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: uploadImage
+    mutationFn: uploadImage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-images'] })
+      queryClient.invalidateQueries({ queryKey: ['storage-usage'] })
+    }
   })
 }
 
@@ -292,7 +354,27 @@ export function useGenerateImagePrompts() {
 }
 
 export function useGenerateAIImages() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: generateAIImages
+    mutationFn: generateAIImages,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-images'] })
+      queryClient.invalidateQueries({ queryKey: ['storage-usage'] })
+    }
+  })
+}
+
+export function useUserImages() {
+  return useQuery({
+    queryKey: ['user-images'],
+    queryFn: fetchUserImages
+  })
+}
+
+export function useStorageUsage() {
+  return useQuery({
+    queryKey: ['storage-usage'],
+    queryFn: fetchStorageUsage,
+    refetchInterval: 60000 // Refetch every minute
   })
 }

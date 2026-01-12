@@ -24,7 +24,8 @@ import {
   Layers,
   Music2,
   Calendar,
-  FileText
+  FileText,
+  Youtube
 } from 'lucide-react'
 
 const API_URL = 'http://localhost:3001/api'
@@ -97,7 +98,12 @@ function ContentCard({
 
         {/* Platform/Type Badges */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-          {content.platform === 'tiktok' ? (
+          {content.platform === 'youtube' ? (
+            <div className="bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1 shadow-sm">
+              <Youtube className="h-3 w-3" />
+              Youtube
+            </div>
+          ) : content.platform === 'tiktok' ? (
             <div className="bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
               <Music2 className="h-3 w-3" />
               TikTok
@@ -131,9 +137,9 @@ function ContentCard({
             size="sm"
             variant="secondary"
             onClick={(e) => { e.stopPropagation(); window.open(content.instagram_url, '_blank') }}
-            title="Abrir original"
+            title={content.platform === 'youtube' ? 'Abrir no Youtube' : 'Abrir original'}
           >
-            <ExternalLink className="h-4 w-4" />
+            {content.platform === 'youtube' ? <Youtube className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
           </Button>
           <Button
             size="sm"
@@ -198,8 +204,8 @@ function ContentCard({
             <Calendar className="h-3 w-3" />
             {formatDate(content.saved_at)}
           </span>
-          {(content.content_type === 'reel' || content.platform === 'tiktok') && (
-            <span className="flex items-center gap-1" title={`Transcricao: ${content.transcription_status}`}>
+          {(content.content_type === 'reel' || content.platform === 'youtube') && (
+            <span className="flex items-center gap-1" title={`Transcrição: ${content.transcription_status}`}>
               <FileText className="h-3 w-3" />
               {content.transcription_status === 'completed' && (
                 <span className="text-green-600">Transcrito</span>

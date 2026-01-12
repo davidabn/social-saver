@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon, ChevronDown, Palette, FolderOpen, Cloud, CloudOff, Undo2, Redo2 } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Sparkles, Settings, Layout, FileText, ImageIcon, ChevronDown, Palette, FolderOpen, Cloud, CloudOff, Undo2, Redo2, Type } from 'lucide-react'
 import { useUndoRedo } from '@/hooks/useUndoRedo'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,6 +8,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,11 +28,14 @@ import { SlideEditor } from '@/components/carousel/SlideEditor'
 import { ImageSearchModal } from '@/components/carousel/ImageSearchModal'
 import { TemplateSelector } from '@/components/carousel/TemplateSelector'
 import { PaletteSelector } from '@/components/carousel/PaletteSelector'
+import { FontManagerModal } from '@/components/carousel/FontManagerModal'
 import { DEFAULT_PALETTE, type ColorPalette } from '@/templates/palettes'
+import { registerUserFonts } from '@/templates/fonts'
 import { ScriptImportModal } from '@/components/carousel/ScriptImportModal'
-import { useGenerateSlidesWithImages, useSearchImages, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
+import { useGenerateSlidesWithImages, useGenerateImagePrompts, useGenerateAIImages } from '@/hooks/useCarouselDesigner'
 import { useSaveCarousel, useCarousel, useCarouselList, useDeleteCarousel } from '@/hooks/useCarouselPersistence'
 import { usePersona } from '@/hooks/useAI'
+import { useUserFonts, loadAllUserFonts } from '@/hooks/useUserFonts'
 import type { CarouselSlide, CarouselDesign, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
@@ -99,17 +106,30 @@ export default function CarouselDesigner() {
   const [showImageSearch, setShowImageSearch] = useState(false)
   const [showScriptImport, setShowScriptImport] = useState(false)
   const [showPaletteSelector, setShowPaletteSelector] = useState(false)
+  const [showFontManager, setShowFontManager] = useState(false)
   const [customPalette, setCustomPalette] = useState<ColorPalette>(DEFAULT_PALETTE)
   const [isExporting, setIsExporting] = useState(false)
   const [topic, setTopic] = useState('')
 
+  // User fonts
+  const { data: userFonts } = useUserFonts()
+
+  // Load user fonts when they change
+  useEffect(() => {
+    if (userFonts && userFonts.length > 0) {
+      loadAllUserFonts(userFonts)
+      registerUserFonts(userFonts) // Registra para uso nos templates
+    }
+  }, [userFonts])
+
   // AI generation
   const generateSlidesWithImages = useGenerateSlidesWithImages()
-  const searchImages = useSearchImages()
+  // const searchImages = useSearchImages() // Removed: Web search feature removed from UI
   const generateImagePrompts = useGenerateImagePrompts()
   const generateAIImages = useGenerateAIImages()
   const [isGeneratingAIImages, setIsGeneratingAIImages] = useState(false)
   const [isGeneratingSingleImage, setIsGeneratingSingleImage] = useState(false)
+  const [bulkSelectedAIModel, setBulkSelectedAIModel] = useState<'flux-2/pro-text-to-image' | 'gpt-image/1.5-text-to-image' | 'nano-banana-pro'>('flux-2/pro-text-to-image')
 
   // Profile branding (from persona)
   const { data: persona } = usePersona()
@@ -135,9 +155,12 @@ export default function CarouselDesigner() {
   }, [persona])
 
   // Carregar carrossel da URL (se tiver id)
+  const hasLoadedRef = useRef(false)
+
   useEffect(() => {
-    if (loadedCarousel?.data && !isLoadingRef.current) {
+    if (loadedCarousel?.data && !hasLoadedRef.current && !isLoadingRef.current) {
       isLoadingRef.current = true
+      hasLoadedRef.current = true
       console.log('[Carousel] Loading saved carousel:', loadedCarousel.id)
 
       // Restaurar design (usando resetDesign para não poluir histórico de undo)
@@ -381,7 +404,8 @@ export default function CarouselDesigner() {
       // Step 2: Generate images from prompts
       const result = await generateAIImages.mutateAsync({
         prompts: prompts,
-        templateId: selectedTemplate?.id
+        templateId: selectedTemplate?.id,
+        model: bulkSelectedAIModel
       })
 
       // Step 3: Update slides with generated images
@@ -408,10 +432,10 @@ export default function CarouselDesigner() {
     }
   }
 
-  // Search images for current slide
-  const handleSearchImages = () => {
-    setShowImageSearch(true)
-  }
+  // Search images for current slide (Removed)
+  // const handleSearchImages = () => {
+  //   setShowImageSearch(true)
+  // }
 
   // Select image from search
   const handleSelectImage = (imageUrl: string) => {
@@ -670,6 +694,16 @@ export default function CarouselDesigner() {
             </Button>
           )}
 
+          {/* Fonts button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFontManager(true)}
+          >
+            <Type className="h-4 w-4 mr-2" />
+            Fontes
+          </Button>
+
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm">
@@ -795,19 +829,58 @@ export default function CarouselDesigner() {
 
         <div className="h-6 w-px bg-border" />
 
-        <Button
-          variant="outline"
-          onClick={handleGenerateAIImages}
-          disabled={isGeneratingAIImages || design.slides.length === 0}
-          title="Gera imagens com IA para todos os slides"
-        >
-          {isGeneratingAIImages ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <ImageIcon className="h-4 w-4 mr-2" />
-          )}
-          {isGeneratingAIImages ? 'Gerando...' : 'Gerar Imagens IA'}
-        </Button>
+        <div className="flex items-center -space-x-px">
+          <Button
+            variant="outline"
+            onClick={handleGenerateAIImages}
+            disabled={isGeneratingAIImages || design.slides.length === 0}
+            className="rounded-r-none border-r-0 h-9"
+          >
+            {isGeneratingAIImages ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ImageIcon className="h-4 w-4 mr-2" />
+            )}
+            {isGeneratingAIImages ? 'Gerando...' : 'Gerar Imagens IA'}
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-l-none h-9 w-8"
+                disabled={isGeneratingAIImages || design.slides.length === 0}
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs">Escolher Modelo de IA</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={bulkSelectedAIModel} onValueChange={(v) => setBulkSelectedAIModel(v as any)}>
+                <DropdownMenuRadioItem value="flux-2/pro-text-to-image" className="text-xs">
+                  <div className="flex flex-col">
+                    <span>Flux 2 Pro</span>
+                    <span className="text-[10px] text-muted-foreground">~$0.02 por imagem</span>
+                  </div>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="nano-banana-pro" className="text-xs">
+                  <div className="flex flex-col">
+                    <span>Nano Banana Pro (Google)</span>
+                    <span className="text-[10px] text-muted-foreground">~$0.09 por imagem</span>
+                  </div>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="gpt-image/1.5-text-to-image" className="text-xs">
+                  <div className="flex flex-col">
+                    <span>GPT Image 1.5</span>
+                    <span className="text-[10px] text-muted-foreground">~$0.02 por imagem</span>
+                  </div>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         <div className="h-6 w-px bg-border" />
 
@@ -839,7 +912,7 @@ export default function CarouselDesigner() {
         </div>
 
         {/* Canvas preview */}
-        <div className="flex-1 flex items-center justify-center bg-muted/50 p-8 overflow-auto">
+        <div className="flex-1 flex items-center justify-center bg-muted/50 p-8 overflow-hidden">
           {selectedSlide ? (
             <SlideCanvas
               slide={selectedSlide}
@@ -867,8 +940,6 @@ export default function CarouselDesigner() {
             <SlideEditor
               slide={selectedSlide}
               onUpdate={(updates) => updateSlide(selectedSlide.id, updates)}
-              onSearchImages={handleSearchImages}
-              isSearching={searchImages.isPending}
               template={selectedTemplate || undefined}
               theme={topic || design.theme}
               isGeneratingImage={isGeneratingSingleImage}
@@ -913,6 +984,12 @@ export default function CarouselDesigner() {
         onImport={handleImportScript}
       />
 
+      {/* Font manager modal */}
+      <FontManagerModal
+        open={showFontManager}
+        onClose={() => setShowFontManager(false)}
+      />
+
       {/* Saved carousels modal */}
       {showSavedCarousels && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -929,9 +1006,8 @@ export default function CarouselDesigner() {
                   {savedCarouselsList.map((carousel) => (
                     <div
                       key={carousel.id}
-                      className={`p-3 border rounded-lg flex items-center justify-between hover:bg-accent cursor-pointer ${
-                        carousel.id === carouselId ? 'border-primary bg-primary/5' : ''
-                      }`}
+                      className={`p-3 border rounded-lg flex items-center justify-between hover:bg-accent cursor-pointer ${carousel.id === carouselId ? 'border-primary bg-primary/5' : ''
+                        }`}
                       onClick={() => {
                         setSearchParams({ id: carousel.id })
                         setCarouselId(carousel.id)
