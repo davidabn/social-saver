@@ -3,7 +3,7 @@ import type { CarouselTemplate } from '@/types/template'
 export const classicTemplate: CarouselTemplate = {
     id: 'classic',
     name: 'Classic',
-    description: 'Estilo original com fontes Georgia e gradiente suave',
+    description: 'Estilo padrão original com fontes Georgia e branding minimalista',
     thumbnail: '', // URL do preview se houver
 
     palette: {

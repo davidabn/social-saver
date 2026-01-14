@@ -163,7 +163,10 @@ export function SlideCanvas({
     ctx.scale(dpr * (isPreview ? scale : 1), dpr * (isPreview ? scale : 1))
 
     // Se tiver template, usa o sistema de renderização de templates
-    if (template && headerTexts) {
+    // EXCEÇÃO: Template 'classic' usa a renderização original direta para manter fidelidade total
+    if (template && template.id === 'classic') {
+      renderDefaultSlide(ctx, slide, brandingText, onCanvasReadyRef.current ? () => onCanvasReadyRef.current!(canvas) : undefined)
+    } else if (template && headerTexts) {
       renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette)
         .then(() => {
           // Calcular bounds dos elementos após renderização
