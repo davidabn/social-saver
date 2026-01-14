@@ -104,26 +104,44 @@ export async function renderCoverLayout(
   // 4. Desenha header (com cor ajustada ao fundo)
   drawHeader(ctx, template, headerTexts, layout.backgroundColor)
 
-  // 4.5. Desenha branding card centralizado (apenas no slide 1)
-  if (slide.slideNumber === 1 && profileBranding && (profileBranding.displayName || profileBranding.username)) {
-    // Posição Y: usa customizada ou calcula acima do headline
+  // 4.5. Desenha branding (apenas no slide 1)
+  if (slide.slideNumber === 1) {
     const baseHeadlineY = layoutPositions?.headlineY !== undefined
       ? layoutPositions.headlineY
       : layout.headlineArea.y
-    const defaultBrandingY = baseHeadlineY - 8  // 8% acima do headline
-    const brandingY = percentToPixel(layoutPositions?.brandingY ?? defaultBrandingY, 'height')
+    const defaultBrandingY = baseHeadlineY - 8 // 8% acima do headline
+    const brandingY_pct = layoutPositions?.brandingY ?? defaultBrandingY
+    const brandingY = percentToPixel(brandingY_pct, 'height')
     const brandingScale = layoutPositions?.brandingScale ?? 1.0
 
-    // X é ignorado pois o branding agora é auto-centralizado
-    await drawProfileBranding(
-      ctx,
-      profileBranding,
-      0,  // x ignorado (auto-centralizado)
-      brandingY,
-      layout.headlineColor,
-      CANVAS_WIDTH,  // passa largura do canvas para centralizar
-      brandingScale
-    )
+    if (template.id === 'classic') {
+      // Estilo original: Texto itálico Georgia
+      const brandingX_pct = layoutPositions?.brandingX ?? 4 // 4% = 43px
+      const brandingX = percentToPixel(brandingX_pct, 'width')
+
+      ctx.save()
+      ctx.fillStyle = layout.headlineColor
+      // Mantém fonte Georgia itálica original se não houver customização
+      ctx.font = `italic 600 ${42 * brandingScale}px Georgia, serif`
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+
+      const brandingText = profileBranding?.displayName || profileBranding?.username || 'Social Saver'
+      ctx.fillText(brandingText, brandingX, brandingY)
+      ctx.restore()
+    } else if (profileBranding && (profileBranding.displayName || profileBranding.username)) {
+      // Estilo moderno: Card com avatar e ícone
+      const brandingY_card = percentToPixel(brandingY_pct, 'height')
+      await drawProfileBranding(
+        ctx,
+        profileBranding,
+        0, // x ignorado (auto-centralizado)
+        brandingY_card,
+        layout.headlineColor,
+        CANVAS_WIDTH,
+        brandingScale
+      )
+    }
   }
 
   // 5. Desenha headline

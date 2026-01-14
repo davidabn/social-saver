@@ -62,34 +62,11 @@ export const classicTemplate: CarouselTemplate = {
             backgroundColor: '#000000',
             headlineColor: '#FFFFFF',
             bodyColor: '#FFFFFF',
-            imageArea: {
-                x: 0,
-                y: 0,
-                width: 100,
-                height: 100,
-                align: 'center'
-            },
-            headlineArea: {
-                x: 4,
-                y: 74, // Equivalente ao original
-                width: 92,
-                align: 'left'
-            },
-            bodyArea: {
-                x: 4,
-                y: 84, // Logo abaixo do headline
-                width: 92,
-                align: 'left'
-            },
-            gradientOverlay: {
-                enabled: true,
-                direction: 'bottom',
-                startOpacity: 0,
-                endOpacity: 0.8, // Conforme slide.gradientOpacity original
-                color: '#000000'
-            }
+            imageArea: { x: 0, y: 0, width: 100, height: 100, align: 'center' },
+            headlineArea: { x: 4, y: 74, width: 92, align: 'left' },
+            bodyArea: { x: 4, y: 84, width: 92, align: 'left' },
+            gradientOverlay: { enabled: true, direction: 'bottom', startOpacity: 0, endOpacity: 0.8, color: '#000000' }
         },
-        // Implementar outros layouts básicos para manter consistência
         imageTop: {
             type: 'imageTop',
             name: 'Imagem no Topo',
@@ -97,9 +74,9 @@ export const classicTemplate: CarouselTemplate = {
             backgroundColor: '#000000',
             headlineColor: '#FFFFFF',
             bodyColor: '#FFFFFF',
-            imageArea: { x: 0, y: 0, width: 100, height: 60, align: 'center' },
-            headlineArea: { x: 4, y: 65, width: 92, align: 'left' },
-            bodyArea: { x: 4, y: 80, width: 92, align: 'left' },
+            imageArea: { x: 0, y: 4, width: 100, height: 42, align: 'center' },
+            headlineArea: { x: 4, y: 62, width: 92, align: 'left' },
+            bodyArea: { x: 4, y: 78, width: 92, align: 'left' },
             gradientOverlay: { enabled: false, direction: 'bottom', startOpacity: 0, endOpacity: 0, color: '#000000' }
         },
         textTop: {
@@ -109,7 +86,7 @@ export const classicTemplate: CarouselTemplate = {
             backgroundColor: '#000000',
             headlineColor: '#FFFFFF',
             bodyColor: '#FFFFFF',
-            imageArea: { x: 0, y: 40, width: 100, height: 60, align: 'center' },
+            imageArea: { x: 0, y: 35, width: 100, height: 65, align: 'center' },
             headlineArea: { x: 4, y: 10, width: 92, align: 'left' },
             bodyArea: { x: 4, y: 85, width: 92, align: 'left' },
             gradientOverlay: { enabled: true, direction: 'bottom', startOpacity: 0, endOpacity: 0.8, color: '#000000' }
@@ -134,8 +111,8 @@ export const classicTemplate: CarouselTemplate = {
             headlineColor: '#FFFFFF',
             bodyColor: '#FFFFFF',
             imageArea: null,
-            headlineArea: { x: 4, y: 40, width: 92, align: 'center' },
-            bodyArea: { x: 4, y: 60, width: 92, align: 'center' },
+            headlineArea: { x: 50, y: 38, width: 90, align: 'center' },
+            bodyArea: { x: 50, y: 65, width: 85, align: 'center' },
             gradientOverlay: { enabled: false, direction: 'bottom', startOpacity: 0, endOpacity: 0, color: '#000000' }
         },
         textImageText: {
@@ -145,9 +122,9 @@ export const classicTemplate: CarouselTemplate = {
             backgroundColor: '#000000',
             headlineColor: '#FFFFFF',
             bodyColor: '#FFFFFF',
-            imageArea: { x: 4, y: 30, width: 92, height: 40, align: 'center' },
-            headlineArea: { x: 4, y: 10, width: 92, align: 'left' },
-            bodyArea: { x: 4, y: 75, width: 92, align: 'left' },
+            imageArea: { x: 4, y: 28, width: 92, height: 40, align: 'center' },
+            headlineArea: { x: 4, y: 6, width: 92, align: 'left' },
+            bodyArea: { x: 4, y: 72, width: 92, align: 'left' },
             gradientOverlay: { enabled: false, direction: 'bottom', startOpacity: 0, endOpacity: 0, color: '#000000' }
         },
         imageBottom: {
@@ -157,9 +134,9 @@ export const classicTemplate: CarouselTemplate = {
             backgroundColor: '#000000',
             headlineColor: '#FFFFFF',
             bodyColor: '#FFFFFF',
-            imageArea: { x: 0, y: 60, width: 100, height: 40, align: 'center' },
+            imageArea: { x: 0, y: 55, width: 100, height: 40, align: 'center' },
             headlineArea: { x: 4, y: 10, width: 92, align: 'left' },
-            bodyArea: { x: 4, y: 30, width: 92, align: 'left' },
+            bodyArea: { x: 4, y: 25, width: 92, align: 'left' },
             gradientOverlay: { enabled: false, direction: 'bottom', startOpacity: 0, endOpacity: 0, color: '#000000' }
         },
         imageLeft: {
@@ -171,7 +148,7 @@ export const classicTemplate: CarouselTemplate = {
             bodyColor: '#FFFFFF',
             imageArea: { x: 0, y: 0, width: 40, height: 100, align: 'center' },
             headlineArea: { x: 44, y: 10, width: 52, align: 'left' },
-            bodyArea: { x: 44, y: 40, width: 52, align: 'left' },
+            bodyArea: { x: 44, y: 30, width: 52, align: 'left' },
             gradientOverlay: { enabled: false, direction: 'bottom', startOpacity: 0, endOpacity: 0, color: '#000000' }
         },
         imageRight: {
@@ -183,7 +160,7 @@ export const classicTemplate: CarouselTemplate = {
             bodyColor: '#FFFFFF',
             imageArea: { x: 60, y: 0, width: 40, height: 100, align: 'center' },
             headlineArea: { x: 4, y: 10, width: 52, align: 'left' },
-            bodyArea: { x: 4, y: 40, width: 52, align: 'left' },
+            bodyArea: { x: 4, y: 30, width: 52, align: 'left' },
             gradientOverlay: { enabled: false, direction: 'bottom', startOpacity: 0, endOpacity: 0, color: '#000000' }
         }
     },

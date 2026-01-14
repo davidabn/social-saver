@@ -163,10 +163,7 @@ export function SlideCanvas({
     ctx.scale(dpr * (isPreview ? scale : 1), dpr * (isPreview ? scale : 1))
 
     // Se tiver template, usa o sistema de renderização de templates
-    // EXCEÇÃO: Template 'classic' usa a renderização original direta para manter fidelidade total
-    if (template && template.id === 'classic') {
-      renderDefaultSlide(ctx, slide, brandingText, onCanvasReadyRef.current ? () => onCanvasReadyRef.current!(canvas) : undefined)
-    } else if (template && headerTexts) {
+    if (template && headerTexts) {
       renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette)
         .then(() => {
           // Calcular bounds dos elementos após renderização
@@ -360,9 +357,10 @@ export function SlideCanvas({
     }
 
     // Branding bounds
-    if (slide.slideNumber === 1 && layoutType === 'cover') {
-      const defaultBrandingX = layout.headlineArea.x
-      const defaultBrandingY = (layout.headlineArea.y) - 8
+    if (slide.slideNumber === 1 && (layoutType === 'cover' || layoutType === 'imageTop')) {
+      const isClassic = template.id === 'classic'
+      const defaultBrandingX = isClassic ? 4 : layout.headlineArea.x
+      const defaultBrandingY = (layoutPositions?.headlineY ?? layout.headlineArea.y) - 8
 
       const brandingX = layoutPositions?.brandingX ?? defaultBrandingX
       const brandingY = layoutPositions?.brandingY ?? defaultBrandingY
@@ -371,8 +369,8 @@ export function SlideCanvas({
         element: 'branding',
         x: (brandingX / 100) * CANVAS_WIDTH - hitPadding,
         y: (brandingY / 100) * CANVAS_HEIGHT - hitPadding,
-        width: 450 + hitPadding * 2,
-        height: 150,
+        width: (isClassic ? 300 : 450) + hitPadding * 2,
+        height: (isClassic ? 80 : 150),
         currentYPercent: brandingY,
         currentXPercent: brandingX
       })
