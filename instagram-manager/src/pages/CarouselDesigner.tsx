@@ -78,6 +78,15 @@ export default function CarouselDesigner() {
   const { data: savedCarouselsList } = useCarouselList()
   const deleteCarouselMutation = useDeleteCarousel()
 
+  // Template state
+  const [selectedTemplate, setSelectedTemplate] = useState<CarouselTemplate | null>(getTemplateById('classic') || null)
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
+  const [headerTexts, setHeaderTexts] = useState<HeaderTexts>({
+    left: '',
+    center: '',
+    right: `© COPYRIGHT ${new Date().getFullYear()}`
+  })
+
   // Design state with undo/redo
   const {
     state: design,
@@ -90,16 +99,8 @@ export default function CarouselDesigner() {
   } = useUndoRedo<CarouselDesign>({
     id: generateId(),
     ...DEFAULT_DESIGN,
-    slides: [createNewSlide(1)]
-  })
-
-  // Template state
-  const [selectedTemplate, setSelectedTemplate] = useState<CarouselTemplate | null>(null)
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
-  const [headerTexts, setHeaderTexts] = useState<HeaderTexts>({
-    left: '',
-    center: '',
-    right: `© COPYRIGHT ${new Date().getFullYear()}`
+    templateId: 'classic',
+    slides: [createNewSlide(1, getTemplateById('classic') || undefined)]
   })
 
   const [selectedSlideId, setSelectedSlideId] = useState<string>(design.slides[0]?.id || '')
