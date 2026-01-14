@@ -8,7 +8,9 @@ import { kieService } from '../services/kie.service.js'
 import { uploadToCloudinary, getCloudinaryUsage } from '../services/cloudinary.service.js'
 import { IMAGE_PROMPT_ENGINEER_SYSTEM } from '../prompts/image-prompt-engineer.js'
 import { HAND_DRAWN_IMAGE_PROMPT_SYSTEM } from '../prompts/hand-drawn-prompt.js'
-import OpenAI from 'openai'
+import * as OpenAIModule from 'openai'
+
+const OpenAI = (OpenAIModule as any).default || OpenAIModule
 
 // Schemas
 const generateSlidesSchema = z.object({
