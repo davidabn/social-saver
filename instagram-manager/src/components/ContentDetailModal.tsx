@@ -43,7 +43,7 @@ interface ContentDetailModalProps {
   onFeedItemSaved?: () => void // Add callbak
 }
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 function getProxyVideoUrl(url: string | null): string | null {
   if (!url) return null
