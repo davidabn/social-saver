@@ -1,7 +1,30 @@
 {
   "permissions": {
     "allow": [
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(ls -la \"C:\\\\SOCIAL SAVER\\\\social-saver\"\" 2>/dev/null || echo \"Directory listing \")",
+      "Bash(git reset:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(dir \"C:\\\\SOCIAL SAVER\" /s /b)",
+      "Bash(findstr:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir \"C:\\\\SOCIAL SAVER\\\\social-saver\\\\instagram-manager\\\\src\\\\components\\\\ui\" /b)",
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "WebFetch(domain:docs.kie.ai)",
+      "Bash(npx tsc:*)",
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\" /FO LIST)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Adiciona features completas - Collections, Feed, Persona e rotas\n\n- Adiciona rotas no App.tsx para CarouselDesigner, Collections, CollectionDetail, Feed e Persona\n- Adiciona links de navegação no Sidebar para todas as páginas\n- Registra rotas no backend server.ts \\(collections, feed, ai, carousel\\)\n- Adiciona controllers e routes para collections e feed\n- Adiciona hooks useCollections e useFeed no frontend\n- Adiciona páginas Collections, CollectionDetail e Feed\n- Inclui migrations SQL para feed e platform\n- Adiciona serviço Perplexity para AI\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(find:*)",
+      "Bash(npm run build:check:*)",
+      "Bash(npm run:*)",
+      "Bash(cat:*)",
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "Bash(npm run build:types:*)"
     ],
     "deny": [],
     "ask": []

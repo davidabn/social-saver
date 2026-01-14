@@ -1,0 +1,8 @@
+.gemini-clipboard/
+slide-gerado/
+backend/dist/
+backend/node_modules/
+instagram-manager/node_modules/
+instagram-manager/dist/
+.claude/
+erro.txt
