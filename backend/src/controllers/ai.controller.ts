@@ -116,10 +116,19 @@ export async function generateContent(
       instructions
     )
 
-    // Save generated script to database
+    // Save generated script to database (maintaining both for compatibility)
+    const existingScripts = content.generated_scripts || {}
+    const updatedScripts = {
+      ...existingScripts,
+      [type]: generatedText
+    }
+
     await supabaseAdmin
       .from('saved_contents')
-      .update({ generated_script: generatedText })
+      .update({
+        generated_script: generatedText, // Keep legacy field updated with last one
+        generated_scripts: updatedScripts
+      })
       .eq('id', contentId)
 
     res.json({ content: generatedText })

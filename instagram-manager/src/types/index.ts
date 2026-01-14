@@ -36,6 +36,7 @@ export interface SavedContent {
   transcription_status: TranscriptionStatus
   collection_id: string | null
   generated_script: string | null
+  generated_scripts: Record<string, string> | null
   created_at: string
   updated_at: string
 }
@@ -98,37 +99,4 @@ export interface GenerateContentInput {
   instructions?: string
 }
 
-// Feed Types
-export interface MonitoredProfile {
-  id: string
-  user_id: string
-  username: string
-  platform: Platform
-  avatar_url: string | null
-  full_name: string | null
-  last_checked_at: string | null
-  created_at: string
-}
 
-export interface FeedItem {
-  id: string
-  user_id: string
-  profile_id: string
-  post_id: string
-  platform: Platform
-  content_type: ContentType
-  thumbnail_url: string | null
-  video_url: string | null
-  image_urls: string[] | null
-  carousel_media: CarouselMedia[] | null
-  caption: string | null
-  likes_count: number
-  comments_count: number
-  posted_at: string | null
-  is_saved: boolean
-  created_at: string
-  profile?: {
-    username: string
-    avatar_url: string | null
-  }
-}

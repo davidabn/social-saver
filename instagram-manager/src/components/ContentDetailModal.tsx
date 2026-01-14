@@ -33,14 +33,11 @@ import {
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 
-import type { FeedItem } from '@/types'
 
 interface ContentDetailModalProps {
   contentId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  feedItem?: FeedItem | null
-  onFeedItemSaved?: () => void
 }
 
 const API_URL = 'http://localhost:3001/api'
@@ -87,7 +84,7 @@ function formatNumber(num: number | null | undefined): string {
   return num.toString()
 }
 
-export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _feedItem, onFeedItemSaved: _onFeedItemSaved }: ContentDetailModalProps) {
+export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDetailModalProps) {
   const navigate = useNavigate()
   const { data: content, isLoading, error } = useContent(contentId)
   const generateContent = useGenerateContent()
@@ -98,14 +95,21 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
   const [scriptType, setScriptType] = useState<'post' | 'reel' | 'carousel'>('reel')
   const [scriptCopied, setScriptCopied] = useState(false)
 
-  // Initialize generated script from saved content
+  // Initialize scriptType from content content_type
   useEffect(() => {
-    if (content?.generated_script) {
-      setGeneratedScript(content.generated_script)
+    if (content?.content_type && open) {
+      setScriptType(content.content_type)
+    }
+  }, [content?.content_type, open])
+
+  // Initialize generated script from saved content based on selected type
+  useEffect(() => {
+    if (content?.generated_scripts && content.generated_scripts[scriptType]) {
+      setGeneratedScript(content.generated_scripts[scriptType])
     } else {
       setGeneratedScript(null)
     }
-  }, [content])
+  }, [content, scriptType])
 
   const handleCopyTranscription = async () => {
     if (content?.transcription?.text) {
@@ -340,8 +344,8 @@ export function ContentDetailModal({ contentId, open, onOpenChange, feedItem: _f
                             <div
                               key={idx}
                               className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex
-                                  ? 'w-4 bg-white'
-                                  : 'w-1.5 bg-white/50'
+                                ? 'w-4 bg-white'
+                                : 'w-1.5 bg-white/50'
                                 }`}
                             />
                           ))}

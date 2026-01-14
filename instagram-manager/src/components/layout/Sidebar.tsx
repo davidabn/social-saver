@@ -1,5 +1,5 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { Bookmark, Image, Video, Grid, Settings, Layers, User, Rss, PenTool, Youtube, Instagram, Music2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Bookmark, Image, Video, Grid, Settings, Layers, User, PenTool, Youtube, Instagram, Music2, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 
@@ -9,7 +9,6 @@ const navItems = [
   { icon: <PenTool className="h-4 w-4" />, label: 'Design Carousel', path: '/carousel' },
   { icon: <Layers className="h-4 w-4" />, label: 'Meus Carrosséis', path: '/my-carousels' },
   { icon: <Bookmark className="h-4 w-4" />, label: 'Coleções', path: '/collections' },
-  { icon: <Rss className="h-4 w-4" />, label: 'Feed', path: '/feed' },
   { icon: <User className="h-4 w-4" />, label: 'Persona', path: '/persona' },
   { icon: <Settings className="h-4 w-4" />, label: 'Configurações', path: '/settings' },
 ]

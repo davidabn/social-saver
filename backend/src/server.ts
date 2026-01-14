@@ -9,7 +9,6 @@ import contentsRoutes from './routes/contents.routes.js'
 import proxyRoutes from './routes/proxy.routes.js'
 import webhookRoutes from './routes/webhook.routes.js'
 import collectionsRoutes from './routes/collections.routes.js'
-import feedRoutes from './routes/feed.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import carouselRoutes from './routes/carousel.routes.js'
 import fontsRoutes from './routes/fonts.routes.js'
@@ -53,7 +52,6 @@ app.use('/api/contents', contentsRoutes)
 app.use('/api/proxy', proxyRoutes)
 app.use('/api/webhook', webhookRoutes)
 app.use('/api/collections', collectionsRoutes)
-app.use('/api/feed', feedRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/carousel', carouselRoutes)
 app.use('/api/fonts', fontsRoutes)

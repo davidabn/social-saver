@@ -7,7 +7,6 @@ import { Settings } from '@/pages/Settings'
 import { Persona } from '@/pages/Persona'
 import { Collections } from '@/pages/Collections'
 import { CollectionDetail } from '@/pages/CollectionDetail'
-import { Feed } from '@/pages/Feed'
 import { MyCarousels } from '@/pages/MyCarousels'
 import CarouselDesigner from '@/pages/CarouselDesigner'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
@@ -65,14 +64,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <CollectionDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/feed"
-            element={
-              <ProtectedRoute>
-                <Feed />
               </ProtectedRoute>
             }
           />

@@ -38,6 +38,7 @@ export interface SavedContent {
   transcription_status: TranscriptionStatus
   collection_id: string | null
   generated_script: string | null
+  generated_scripts: Record<string, string> | null
   created_at: string
   updated_at: string
 }
