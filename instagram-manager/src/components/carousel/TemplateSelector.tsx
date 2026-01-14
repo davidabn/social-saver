@@ -33,18 +33,6 @@ export function TemplateSelector({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 mt-4">
-          {/* Opção sem template */}
-          <TemplateCard
-            name="Sem Template"
-            description="Estilo padrão original (não editável)"
-            isSelected={!selectedTemplateId}
-            onClick={() => {
-              onSelectTemplate(null)
-              onClose()
-            }}
-            colors={['#000000', '#FFFFFF']}
-          />
-
           {/* Templates disponíveis */}
           {templates.map((template) => (
             <TemplateCard

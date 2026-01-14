@@ -918,7 +918,7 @@ export function SlideCanvas({
 
 
 
-// Renderização padrão (sem template) - mantém comportamento original
+// Renderização Classic (original) - mantém comportamento original
 function renderDefaultSlide(
   ctx: CanvasRenderingContext2D,
   slide: CarouselSlide,
