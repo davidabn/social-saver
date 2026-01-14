@@ -15,7 +15,6 @@ import {
   drawHandDrawnArrow,
   loadImage,
   percentToPixel,
-  createFontString,
   createCustomFontString,
   renderRichText
 } from './base'
@@ -63,11 +62,13 @@ export async function renderTextTopLayout(
       layoutPositions.headlineFontStyle ?? 'normal'
     )
   } else {
-    ctx.font = createFontString(
+    // Fonte italic padrão - usa createCustomFontString para garantir resolução correta
+    ctx.font = createCustomFontString(
       headlineSize,
+      undefined,
       typography.headlineFont,
       typography.headlineWeight,
-      typography.headlineStyle  // ITALIC
+      typography.headlineStyle === 'italic' ? 'italic' : 'normal'
     )
   }
   // Usa alinhamento customizado do layout ou o padrão do template
@@ -194,18 +195,14 @@ export async function renderTextTopLayout(
   const bodySize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? typography.bodySize
 
   ctx.fillStyle = layout.bodyColor
-  // Usa fonte customizada se definida, senão usa fonte do template
-  if (layoutPositions?.bodyFontFamily) {
-    ctx.font = createCustomFontString(
-      bodySize,
-      layoutPositions.bodyFontFamily,
-      typography.bodyFont,
-      layoutPositions.bodyFontWeight ?? 400,
-      layoutPositions.bodyFontStyle ?? 'normal'
-    )
-  } else {
-    ctx.font = `${typography.bodyWeight} ${bodySize}px ${typography.bodyFont}`
-  }
+  // Usa createCustomFontString para garantir resolução correta e fallback
+  ctx.font = createCustomFontString(
+    bodySize,
+    layoutPositions?.bodyFontFamily,
+    typography.bodyFont,
+    layoutPositions?.bodyFontWeight ?? typography.bodyWeight,
+    (layoutPositions?.bodyFontStyle || typography.bodyStyle) === 'italic' ? 'italic' : 'normal'
+  )
   // Usa alinhamento customizado do layout ou o padrão do template
   const bodyAlign = layoutPositions?.bodyAlign ?? layout.bodyArea.align
   ctx.textAlign = bodyAlign

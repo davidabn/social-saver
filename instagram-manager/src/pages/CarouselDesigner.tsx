@@ -36,6 +36,7 @@ import { useGenerateSlidesWithImages, useGenerateImagePrompts, useGenerateAIImag
 import { useSaveCarousel, useCarousel, useCarouselList, useDeleteCarousel } from '@/hooks/useCarouselPersistence'
 import { usePersona } from '@/hooks/useAI'
 import { useUserFonts, loadAllUserFonts } from '@/hooks/useUserFonts'
+import { useFonts } from '@/hooks/useFonts'
 import type { CarouselSlide, CarouselDesign, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import { DEFAULT_SLIDE, DEFAULT_DESIGN } from '@/types/carousel'
@@ -143,6 +144,26 @@ export default function CarouselDesigner() {
       isVerified: persona.isVerified
     }
   }, [persona])
+
+  const personaFonts = useMemo(() => {
+    if (!persona?.headlineFont && !persona?.bodyFont) return undefined
+    return {
+      headlineFont: persona.headlineFont,
+      headlineWeight: persona.headlineWeight,
+      headlineStyle: persona.headlineStyle,
+      bodyFont: persona.bodyFont,
+      bodyWeight: persona.bodyWeight,
+      bodyStyle: persona.bodyStyle
+    }
+  }, [persona])
+
+  const { loadFont } = useFonts()
+
+  // Pre-carregar fontes da persona
+  useEffect(() => {
+    if (persona?.headlineFont) loadFont(persona.headlineFont)
+    if (persona?.bodyFont) loadFont(persona.bodyFont)
+  }, [persona, loadFont])
 
   // Preenche headers com dados da persona quando carrega (primeira vez apenas)
   useEffect(() => {
@@ -460,7 +481,8 @@ export default function CarouselDesigner() {
           selectedTemplate || undefined,
           selectedTemplate ? headerTexts : undefined,
           profileBranding,
-          selectedTemplate ? customPalette : undefined
+          selectedTemplate ? customPalette : undefined,
+          personaFonts
         )
 
         // Converter canvas para blob
@@ -501,7 +523,9 @@ export default function CarouselDesigner() {
         selectedTemplate,
         headerTexts,
         design.name,
-        profileBranding
+        profileBranding,
+        undefined,
+        personaFonts
       )
     } catch (error) {
       console.error('Failed to export PSD:', error)
@@ -525,7 +549,9 @@ export default function CarouselDesigner() {
         selectedTemplate,
         headerTexts,
         design.name,
-        profileBranding
+        profileBranding,
+        undefined,
+        personaFonts
       )
     } catch (error) {
       console.error('Failed to export PSD ZIP:', error)
@@ -549,7 +575,9 @@ export default function CarouselDesigner() {
         selectedTemplate,
         headerTexts,
         design.name,
-        profileBranding
+        profileBranding,
+        undefined,
+        personaFonts
       )
     } catch (error) {
       console.error('Failed to export PDF:', error)
@@ -909,6 +937,7 @@ export default function CarouselDesigner() {
             headerTexts={selectedTemplate ? headerTexts : undefined}
             brandingText={design.brandingText}
             customPalette={selectedTemplate ? customPalette : undefined}
+            personaFonts={personaFonts}
           />
         </div>
 
@@ -927,6 +956,7 @@ export default function CarouselDesigner() {
               isGenerating={isGeneratingAIImages || isGeneratingSingleImage}
               onPositionChange={handlePositionChange}
               onTextChange={handleTextChange}
+              personaFonts={personaFonts}
             />
           ) : (
             <div className="text-center text-muted-foreground">
@@ -945,6 +975,7 @@ export default function CarouselDesigner() {
               theme={topic || design.theme}
               isGeneratingImage={isGeneratingSingleImage}
               onGeneratingChange={setIsGeneratingSingleImage}
+              personaFonts={personaFonts}
             />
           ) : (
             <div className="p-4 text-center text-muted-foreground">

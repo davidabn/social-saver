@@ -3,7 +3,7 @@ import type { CarouselSlide, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import type { ColorPalette } from '@/templates/palettes'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PREVIEW_SCALE, getPositionKey, getLayoutPositions } from '@/types/carousel'
-import { renderSlideWithTemplate, wrapText, createFontString, createCondensedFontString, createCustomFontString } from '@/templates/renderers'
+import { renderSlideWithTemplate, wrapText, createCustomFontString } from '@/templates/renderers'
 import { InlineTextEditor } from './InlineTextEditor'
 
 // Estado da edição inline
@@ -83,6 +83,14 @@ interface SlideCanvasProps {
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
   onPositionChange?: (updates: Partial<CarouselSlide>) => void
   onTextChange?: (field: 'headline' | 'body', value: string) => void
+  personaFonts?: {
+    headlineFont?: string
+    headlineWeight?: number
+    headlineStyle?: 'normal' | 'italic'
+    bodyFont?: string
+    bodyWeight?: number
+    bodyStyle?: 'normal' | 'italic'
+  }
 }
 
 export function SlideCanvas({
@@ -97,7 +105,8 @@ export function SlideCanvas({
   isGenerating = false,
   onCanvasReady,
   onPositionChange,
-  onTextChange
+  onTextChange,
+  personaFonts
 }: SlideCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [elementBounds, setElementBounds] = useState<ElementBounds[]>([])
@@ -164,10 +173,10 @@ export function SlideCanvas({
 
     // Se tiver template, usa o sistema de renderização de templates
     if (template && headerTexts) {
-      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette)
+      renderSlideWithTemplate(ctx, slide, template, headerTexts || { left: '', center: '', right: '' }, profileBranding, customPalette, personaFonts)
         .then(() => {
           // Calcular bounds dos elementos após renderização
-          const bounds = calculateElementBounds(slide, template, ctx)
+          const bounds = calculateElementBounds(slide, template, ctx, personaFonts)
           setElementBounds(bounds)
 
           if (onCanvasReadyRef.current) {
@@ -182,13 +191,14 @@ export function SlideCanvas({
       renderDefaultSlide(ctx, slide, brandingText, onCanvasReadyRef.current ? () => onCanvasReadyRef.current!(canvas) : undefined)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slide, brandingText, template, headerTexts, profileBranding, customPalette, isPreview, scale])
+  }, [slide, brandingText, template, headerTexts, profileBranding, customPalette, isPreview, scale, personaFonts])
 
   // Calcula bounds dos elementos arrastáveis
   const calculateElementBounds = useCallback((
     slide: CarouselSlide,
     template: CarouselTemplate,
-    ctx?: CanvasRenderingContext2D
+    ctx?: CanvasRenderingContext2D,
+    personaFonts?: SlideCanvasProps['personaFonts']
   ): ElementBounds[] => {
     const bounds: ElementBounds[] = []
     const layoutType = slide.layoutType || 'cover'
@@ -227,11 +237,16 @@ export function SlideCanvas({
       const baseHeadlineSize = useAltFont ? typography.headlineAltSize : typography.headlineSize
       const fontSize = layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? baseHeadlineSize // Simplifying for bounds
 
-      const headlineFont = layoutPositions?.headlineFontFamily
-        ? createCustomFontString(fontSize, layoutPositions.headlineFontFamily, typography.headlineFont, 400)
-        : useAltFont
-          ? createCondensedFontString(fontSize, typography.headlineAltFont, typography.headlineAltWeight)
-          : createFontString(fontSize, typography.headlineFont, typography.headlineWeight, typography.headlineStyle)
+      const headWeight = layoutPositions?.headlineFontWeight ?? (personaFonts?.headlineWeight !== undefined ? personaFonts.headlineWeight : (useAltFont ? typography.headlineAltWeight : typography.headlineWeight))
+      const headStyle = layoutPositions?.headlineFontStyle || (personaFonts?.headlineStyle || (useAltFont ? 'normal' : typography.headlineStyle))
+
+      const headlineFont = createCustomFontString(
+        fontSize,
+        layoutPositions?.headlineFontFamily || (useAltFont ? undefined : personaFonts?.headlineFont),
+        useAltFont ? typography.headlineAltFont : typography.headlineFont,
+        headWeight,
+        headStyle === 'italic' ? 'italic' : 'normal'
+      )
 
       ctx.font = headlineFont
       const headlineText = useAltFont ? (slide.headline || '').toUpperCase() : (slide.headline || '')
@@ -282,12 +297,36 @@ export function SlideCanvas({
       bodyY = headlineY + headlineHeight + (template.decorations.separatorLine ? 60 : 50)
     }
 
+    // Tenta calcular altura real do body se tiver contexto
+    let bodyHeight = 180 // fallback
+    if (ctx) {
+      const { typography } = template
+      const fontSize = layoutPositions?.bodyFontSize ?? slide.bodyFontSize ?? typography.bodySize
+
+      const bodyWeight = layoutPositions?.bodyFontWeight ?? (personaFonts?.bodyWeight !== undefined ? personaFonts.bodyWeight : typography.bodyWeight)
+      const bodyStyle = layoutPositions?.bodyFontStyle || (personaFonts?.bodyStyle || (typography as any).bodyStyle || 'normal')
+
+      const bodyFont = createCustomFontString(
+        fontSize,
+        layoutPositions?.bodyFontFamily || personaFonts?.bodyFont,
+        typography.bodyFont,
+        bodyWeight,
+        bodyStyle === 'italic' ? 'italic' : 'normal'
+      )
+
+      ctx.font = bodyFont
+      const bodyWidth = (layout.bodyArea.width / 100) * CANVAS_WIDTH
+      const cleanText = (slide.body || '').replace(/<[^>]*>/g, '')
+      const lines = wrapText(ctx, cleanText, bodyWidth, 50)
+      bodyHeight = lines.length * (fontSize * 1.2)
+    }
+
     bounds.push({
       element: 'body',
       x: (layout.bodyArea.x / 100) * CANVAS_WIDTH - hitPadding,
       y: bodyY - hitPadding,
       width: (layout.bodyArea.width / 100) * CANVAS_WIDTH + hitPadding * 2,
-      height: 180,
+      height: Math.max(100, bodyHeight) + hitPadding * 2,
       currentYPercent: layoutPositions?.bodyY ?? layout.bodyArea.y
     })
 
@@ -1024,7 +1063,8 @@ export async function generateFullResCanvas(
   template?: CarouselTemplate,
   headerTexts?: HeaderTexts,
   profileBranding?: ProfileBranding,
-  customPalette?: ColorPalette
+  customPalette?: ColorPalette,
+  personaFonts?: SlideCanvasProps['personaFonts']
 ): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas')
@@ -1039,7 +1079,7 @@ export async function generateFullResCanvas(
 
     // Se tiver template, usa o sistema de renderização de templates
     if (template && headerTexts) {
-      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette)
+      renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette, personaFonts)
         .then(() => resolve(canvas))
         .catch((error) => {
           console.error('Failed to render slide with template:', error)

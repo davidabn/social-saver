@@ -364,7 +364,8 @@ function createHeadlineLayer(
   layout: SlideLayoutConfig,
   template: CarouselTemplate,
   customY?: number,
-  layoutPositions?: LayoutPositions
+  layoutPositions?: LayoutPositions,
+  personaFonts?: any
 ): Layer {
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_WIDTH
@@ -386,16 +387,21 @@ function createHeadlineLayer(
     ctx.font = createCustomFontString(
       headlineSize,
       layoutPositions.headlineFontFamily,
-      template.typography.headlineFont,
+      personaFonts?.headlineFont || template.typography.headlineFont,
       layoutPositions.headlineFontWeight ?? 400,
       layoutPositions.headlineFontStyle ?? 'normal'
     )
   } else {
+    const useAltFont = layout.useAltHeadline === true && !personaFonts?.headlineFont
+    const headFont = personaFonts?.headlineFont || (useAltFont ? template.typography.headlineAltFont : template.typography.headlineFont)
+    const headWeight = personaFonts?.headlineWeight || (useAltFont ? template.typography.headlineAltWeight : template.typography.headlineWeight)
+    const headStyle = personaFonts?.headlineStyle || (useAltFont ? 'normal' : template.typography.headlineStyle)
+
     ctx.font = createFontString(
       headlineSize,
-      template.typography.headlineFont,
-      template.typography.headlineWeight,
-      template.typography.headlineStyle
+      headFont,
+      headWeight,
+      headStyle
     )
   }
   ctx.textAlign = layout.headlineArea.align
@@ -427,7 +433,8 @@ function createBodyLayer(
   template: CarouselTemplate,
   headlineEndY: number,
   customY?: number,
-  layoutPositions?: LayoutPositions
+  layoutPositions?: LayoutPositions,
+  personaFonts?: any
 ): Layer {
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_WIDTH
@@ -449,12 +456,21 @@ function createBodyLayer(
     ctx.font = createCustomFontString(
       bodySize,
       layoutPositions.bodyFontFamily,
-      template.typography.bodyFont,
+      personaFonts?.bodyFont || template.typography.bodyFont,
       layoutPositions.bodyFontWeight ?? 400,
       layoutPositions.bodyFontStyle ?? 'normal'
     )
   } else {
-    ctx.font = `${template.typography.bodyWeight} ${bodySize}px ${template.typography.bodyFont}`
+    const bodyFont = personaFonts?.bodyFont || template.typography.bodyFont
+    const bodyWeight = personaFonts?.bodyWeight || template.typography.bodyWeight
+    const bodyStyle = personaFonts?.bodyStyle || (template.typography as any).bodyStyle || 'normal'
+
+    ctx.font = createFontString(
+      bodySize,
+      bodyFont,
+      bodyWeight,
+      bodyStyle
+    )
   }
   ctx.textAlign = layout.bodyArea.align
 
@@ -483,7 +499,8 @@ export async function createPsdFromSlide(
   slide: CarouselSlide,
   template: CarouselTemplate,
   headerTexts: HeaderTexts,
-  profileBranding?: ProfileBranding
+  profileBranding?: ProfileBranding,
+  personaFonts?: any
 ): Promise<ArrayBuffer> {
   const layoutType = slide.layoutType || 'cover'
   const layout = template.layouts[layoutType]
@@ -549,7 +566,8 @@ export async function createPsdFromSlide(
     layout,
     template,
     layoutPositions?.headlineY,
-    layoutPositions
+    layoutPositions,
+    personaFonts
   )
   layers.push(headlineLayer)
 
@@ -568,16 +586,21 @@ export async function createPsdFromSlide(
     tempCtx.font = createCustomFontString(
       headlineSize,
       layoutPositions.headlineFontFamily,
-      template.typography.headlineFont,
+      personaFonts?.headlineFont || template.typography.headlineFont,
       layoutPositions.headlineFontWeight ?? 400,
       layoutPositions.headlineFontStyle ?? 'normal'
     )
   } else {
+    const useAltFont = layout.useAltHeadline === true && !personaFonts?.headlineFont
+    const headFont = personaFonts?.headlineFont || (useAltFont ? template.typography.headlineAltFont : template.typography.headlineFont)
+    const headWeight = personaFonts?.headlineWeight || (useAltFont ? template.typography.headlineAltWeight : template.typography.headlineWeight)
+    const headStyle = personaFonts?.headlineStyle || (useAltFont ? 'normal' : template.typography.headlineStyle)
+
     tempCtx.font = createFontString(
       headlineSize,
-      template.typography.headlineFont,
-      template.typography.headlineWeight,
-      template.typography.headlineStyle
+      headFont,
+      headWeight,
+      headStyle
     )
   }
   const headlineWidth = percentToPixel(layout.headlineArea.width, 'width')
@@ -592,7 +615,8 @@ export async function createPsdFromSlide(
     template,
     headlineEndY,
     layoutPositions?.bodyY,
-    layoutPositions
+    layoutPositions,
+    personaFonts
   )
   layers.push(bodyLayer)
 
@@ -613,7 +637,8 @@ export async function exportSlidesAsPsd(
   headerTexts: HeaderTexts,
   designName: string,
   profileBranding?: ProfileBranding,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  personaFonts?: any
 ): Promise<void> {
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i]
@@ -624,7 +649,8 @@ export async function exportSlidesAsPsd(
       slide,
       template,
       headerTexts,
-      slide.slideNumber === 1 ? profileBranding : undefined
+      slide.slideNumber === 1 ? profileBranding : undefined,
+      personaFonts
     )
 
     // Download the file
@@ -647,7 +673,8 @@ export async function exportSlidesAsPsdZip(
   headerTexts: HeaderTexts,
   designName: string,
   profileBranding?: ProfileBranding,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  personaFonts?: any
 ): Promise<void> {
   // Dynamically import JSZip
   const JSZip = (await import('jszip')).default
@@ -663,7 +690,8 @@ export async function exportSlidesAsPsdZip(
       slide,
       template,
       headerTexts,
-      slide.slideNumber === 1 ? profileBranding : undefined
+      slide.slideNumber === 1 ? profileBranding : undefined,
+      personaFonts
     )
 
     zip.file(`slide-${slide.slideNumber}.psd`, psdBuffer)
@@ -689,10 +717,10 @@ function hexToRgbValues(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result
     ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      }
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    }
     : { r: 255, g: 255, b: 255 }
 }
 
@@ -932,7 +960,8 @@ export async function exportSlidesAsPdfEditable(
   headerTexts: HeaderTexts,
   designName: string,
   profileBranding?: ProfileBranding,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  personaFonts?: any
 ): Promise<void> {
   // Dynamically import jsPDF
   const { jsPDF } = await import('jspdf')
@@ -1014,7 +1043,7 @@ export async function exportSlidesAsPdfEditable(
       : percentToPixel(layout.headlineArea.y, 'height'))
 
     // Verifica se deve usar fonte alternativa (bold condensed uppercase)
-    const useAltFont = layout.useAltHeadline === true
+    const useAltFont = layout.useAltHeadline === true && !personaFonts?.headlineFont
     const baseSize = useAltFont ? template.typography.headlineAltSize : template.typography.headlineSize
 
     // Usa tamanho do layout se definido, depois do slide, senão usa do template
@@ -1032,7 +1061,7 @@ export async function exportSlidesAsPdfEditable(
     pdf.setFontSize(headlineSize * 0.75) // Convert px to pt
 
     // Prepara texto (UPPERCASE se usar fonte alternativa)
-    const headlineText = useAltFont ? slide.headline.toUpperCase() : slide.headline
+    const headlineText = (useAltFont && !personaFonts?.headlineFont) ? slide.headline.toUpperCase() : slide.headline
 
     // Wrap headline text usando medição precisa
     const headlineWidthPx = percentToPixel(layout.headlineArea.width, 'width')

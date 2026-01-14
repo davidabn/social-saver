@@ -27,6 +27,14 @@ interface SlideEditorProps {
   theme?: string
   isGeneratingImage?: boolean
   onGeneratingChange?: (isGenerating: boolean) => void
+  personaFonts?: {
+    headlineFont?: string
+    headlineWeight?: number
+    headlineStyle?: 'normal' | 'italic'
+    bodyFont?: string
+    bodyWeight?: number
+    bodyStyle?: 'normal' | 'italic'
+  }
 }
 
 export function SlideEditor({
@@ -35,7 +43,8 @@ export function SlideEditor({
   template,
   theme = '',
   isGeneratingImage = false,
-  onGeneratingChange
+  onGeneratingChange,
+  personaFonts
 }: SlideEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadImage = useUploadImage()
@@ -296,9 +305,9 @@ export function SlideEditor({
                 onFontChange={(font) => updateLayoutFont('headlineFontFamily', font)}
                 onWeightChange={(weight) => updateLayoutFont('headlineFontWeight', weight)}
                 onStyleChange={(style) => updateLayoutFont('headlineFontStyle', style)}
-                defaultFont={template?.typography.headlineFont?.split(',')[0]?.replace(/"/g, '').trim() || 'Georgia'}
-                defaultWeight={400}
-                defaultStyle="italic"
+                defaultFont={personaFonts?.headlineFont || template?.typography.headlineFont?.split(',')[0]?.replace(/"/g, '').trim() || 'Georgia'}
+                defaultWeight={personaFonts?.headlineWeight || 400}
+                defaultStyle={personaFonts?.headlineStyle || "italic"}
               />
               <FontSelectorCompact
                 label="Texto"
@@ -308,9 +317,9 @@ export function SlideEditor({
                 onFontChange={(font) => updateLayoutFont('bodyFontFamily', font)}
                 onWeightChange={(weight) => updateLayoutFont('bodyFontWeight', weight)}
                 onStyleChange={(style) => updateLayoutFont('bodyFontStyle', style)}
-                defaultFont="Arial"
-                defaultWeight={400}
-                defaultStyle="normal"
+                defaultFont={personaFonts?.bodyFont || "Georgia"}
+                defaultWeight={personaFonts?.bodyWeight || 400}
+                defaultStyle={personaFonts?.bodyStyle || "normal"}
               />
             </div>
 
@@ -319,7 +328,14 @@ export function SlideEditor({
               <span className="text-xs font-medium">Tamanho das Fontes</span>
               <div className="space-y-2">
                 <Label htmlFor="headlineFontSize" className="text-xs">
-                  Headline: {layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template?.typography.headlineAltSize ?? 72}px
+                  Headline: {
+                    layoutPositions?.headlineFontSize ??
+                    slide.headlineFontSize ??
+                    (template?.layouts?.[currentLayout as SlideLayoutType]?.useAltHeadline
+                      ? template?.typography.headlineAltSize
+                      : template?.typography.headlineSize) ??
+                    72
+                  }px
                 </Label>
                 <input
                   type="range"
@@ -327,7 +343,14 @@ export function SlideEditor({
                   min="40"
                   max="100"
                   step="2"
-                  value={layoutPositions?.headlineFontSize ?? slide.headlineFontSize ?? template?.typography.headlineAltSize ?? 72}
+                  value={
+                    layoutPositions?.headlineFontSize ??
+                    slide.headlineFontSize ??
+                    (template?.layouts?.[currentLayout as SlideLayoutType]?.useAltHeadline
+                      ? template?.typography.headlineAltSize
+                      : template?.typography.headlineSize) ??
+                    72
+                  }
                   onChange={(e) => updateLayoutFont('headlineFontSize', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
                 />

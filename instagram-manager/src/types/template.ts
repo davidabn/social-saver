@@ -26,18 +26,19 @@ export interface TemplateTypography {
   // Headline principal (italic serif)
   headlineFont: string      // Fonte do headline
   headlineSize: number      // Tamanho em px
-  headlineWeight: string    // Peso (bold, normal, etc)
+  headlineWeight: string | number    // Peso (bold, normal, 700, etc)
   headlineStyle: string     // normal, italic
 
   // Headline alternativo (bold condensed) - para imageTop/fullImage
   headlineAltFont: string   // Fonte condensed (Impact, etc)
   headlineAltSize: number   // Tamanho em px
-  headlineAltWeight: string // Peso (geralmente bold)
+  headlineAltWeight: string | number // Peso (geralmente bold)
 
   // Body e Header
   bodyFont: string          // Fonte do body
   bodySize: number
-  bodyWeight: string
+  bodyWeight: string | number
+  bodyStyle: string
   headerFont: string        // Fonte do header
   headerSize: number
 }

@@ -29,9 +29,10 @@ export const classicTemplate: CarouselTemplate = {
         headlineAltWeight: 'bold',
 
         // Body e Header
-        bodyFont: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        bodyFont: 'Georgia, serif',
         bodySize: 36,
         bodyWeight: 'normal',
+        bodyStyle: 'normal',
         headerFont: 'Georgia, serif',
         headerSize: 42
     },

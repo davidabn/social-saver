@@ -64,6 +64,37 @@ function applyCustomPalette(
   return { layout: modifiedLayout, template: modifiedTemplate }
 }
 
+// Aplica fontes da Persona ao template
+function applyPersonaFonts(
+  template: CarouselTemplate,
+  persona?: {
+    headlineFont?: string
+    headlineWeight?: number
+    headlineStyle?: 'normal' | 'italic'
+    bodyFont?: string
+    bodyWeight?: number
+    bodyStyle?: 'normal' | 'italic'
+  }
+): CarouselTemplate {
+  if (!persona) return template
+
+  return {
+    ...template,
+    typography: {
+      ...template.typography,
+      headlineFont: persona.headlineFont || template.typography.headlineFont,
+      headlineWeight: persona.headlineWeight !== undefined ? persona.headlineWeight : template.typography.headlineWeight,
+      headlineStyle: persona.headlineStyle || template.typography.headlineStyle,
+      bodyFont: persona.bodyFont || template.typography.bodyFont,
+      bodyWeight: persona.bodyWeight !== undefined ? persona.bodyWeight : template.typography.bodyWeight,
+      bodyStyle: persona.bodyStyle || (template.typography as any).bodyStyle || 'normal',
+      // Se mudar a headlineFont, muda também a headlineAltFont para manter consistência
+      headlineAltFont: persona.headlineFont || template.typography.headlineAltFont,
+      headlineAltWeight: persona.headlineWeight !== undefined ? persona.headlineWeight : template.typography.headlineAltWeight,
+    }
+  }
+}
+
 // Função principal que renderiza um slide usando o template
 export async function renderSlideWithTemplate(
   ctx: CanvasRenderingContext2D,
@@ -71,7 +102,15 @@ export async function renderSlideWithTemplate(
   template: CarouselTemplate,
   headerTexts: HeaderTexts,
   profileBranding?: ProfileBranding,
-  customPalette?: ColorPalette
+  customPalette?: ColorPalette,
+  personaFonts?: {
+    headlineFont?: string
+    headlineWeight?: number
+    headlineStyle?: 'normal' | 'italic'
+    bodyFont?: string
+    bodyWeight?: number
+    bodyStyle?: 'normal' | 'italic'
+  }
 ): Promise<void> {
   // Determina o tipo de layout a usar
   const layoutType = slide.layoutType || getDefaultLayoutForSlide(slide.slideNumber, template)
@@ -83,12 +122,15 @@ export async function renderSlideWithTemplate(
   }
 
   // Aplica paleta customizada se fornecida
-  const { layout, template: modifiedTemplate } = applyCustomPalette(
+  let { layout, template: modifiedTemplate } = applyCustomPalette(
     originalLayout,
     layoutType,
     template,
     customPalette
   )
+
+  // Aplica fontes da persona se fornecidas
+  modifiedTemplate = applyPersonaFonts(modifiedTemplate, personaFonts)
 
   // Obtém o renderizador apropriado
   const renderer = renderers[layoutType]

@@ -32,6 +32,7 @@ export const handDrawnTemplate: CarouselTemplate = {
     bodyFont: '"Caveat", cursive',
     bodySize: 40,
     bodyWeight: 'normal',
+    bodyStyle: 'normal',
 
     // Header - fonte sistema
     headerFont: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',

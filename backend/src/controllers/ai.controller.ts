@@ -16,6 +16,13 @@ const personaSchema = z.object({
   username: z.string().optional(),
   avatarUrl: z.string().optional(),
   isVerified: z.boolean().optional(),
+  // Default fonts
+  headlineFont: z.string().optional(),
+  headlineWeight: z.number().optional(),
+  headlineStyle: z.enum(['normal', 'italic']).optional(),
+  bodyFont: z.string().optional(),
+  bodyWeight: z.number().optional(),
+  bodyStyle: z.enum(['normal', 'italic']).optional(),
 })
 
 const generateContentSchema = z.object({

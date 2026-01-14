@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { usePersona, useUpdatePersona } from '@/hooks/useAI'
 import { supabase } from '@/lib/supabase'
-import { Loader2, Save, BrainCircuit, User, CheckCircle2 } from 'lucide-react'
+import { Loader2, Save, BrainCircuit, User, CheckCircle2, Type } from 'lucide-react'
+import { FontSelector } from '@/components/carousel/FontSelector'
 
 export function Persona() {
   const { data: persona, isLoading } = usePersona()
@@ -22,7 +23,14 @@ export function Persona() {
     displayName: '',
     username: '',
     avatarUrl: '',
-    isVerified: false
+    isVerified: false,
+    // Default fonts
+    headlineFont: 'Georgia',
+    headlineWeight: 700,
+    headlineStyle: 'normal' as 'normal' | 'italic',
+    bodyFont: 'Georgia',
+    bodyWeight: 400,
+    bodyStyle: 'normal' as 'normal' | 'italic'
   })
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
@@ -38,7 +46,13 @@ export function Persona() {
         displayName: persona.displayName || '',
         username: persona.username || '',
         avatarUrl: persona.avatarUrl || '',
-        isVerified: persona.isVerified || false
+        isVerified: persona.isVerified || false,
+        headlineFont: persona.headlineFont || 'Georgia',
+        headlineWeight: persona.headlineWeight || 700,
+        headlineStyle: (persona.headlineStyle as 'normal' | 'italic') || 'normal',
+        bodyFont: persona.bodyFont || 'Georgia',
+        bodyWeight: persona.bodyWeight || 400,
+        bodyStyle: (persona.bodyStyle as 'normal' | 'italic') || 'normal'
       })
     }
   }, [persona])
@@ -278,6 +292,41 @@ export function Persona() {
                   checked={formData.isVerified}
                   onChange={(e) => setFormData(prev => ({ ...prev, isVerified: e.target.checked }))}
                   className="h-5 w-5 rounded border-input accent-blue-500"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card de Fontes Padrão */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Type className="h-5 w-5" />
+                Fontes Padrão
+              </CardTitle>
+              <CardDescription>
+                Escolha as fontes que serão aplicadas por padrão nos seus carrosséis.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FontSelector
+                  label="Fonte de Título (Headlines)"
+                  selectedFont={formData.headlineFont}
+                  selectedWeight={formData.headlineWeight}
+                  selectedStyle={formData.headlineStyle}
+                  onFontChange={(font) => setFormData(prev => ({ ...prev, headlineFont: font }))}
+                  onWeightChange={(weight) => setFormData(prev => ({ ...prev, headlineWeight: weight }))}
+                  onStyleChange={(style) => setFormData(prev => ({ ...prev, headlineStyle: style }))}
+                />
+                <FontSelector
+                  label="Fonte de Texto (Corpo)"
+                  selectedFont={formData.bodyFont}
+                  selectedWeight={formData.bodyWeight}
+                  selectedStyle={formData.bodyStyle}
+                  onFontChange={(font) => setFormData(prev => ({ ...prev, bodyFont: font }))}
+                  onWeightChange={(weight) => setFormData(prev => ({ ...prev, bodyWeight: weight }))}
+                  onStyleChange={(style) => setFormData(prev => ({ ...prev, bodyStyle: style }))}
                 />
               </div>
             </CardContent>

@@ -145,6 +145,13 @@ export interface Persona {
   username?: string           // "davidabn_" (without @)
   avatarUrl?: string          // Profile photo URL
   isVerified?: boolean        // Show blue checkmark
+  // Default fonts
+  headlineFont?: string
+  headlineWeight?: number
+  headlineStyle?: 'normal' | 'italic'
+  bodyFont?: string
+  bodyWeight?: number
+  bodyStyle?: 'normal' | 'italic'
 }
 
 export interface GenerateContentInput {

@@ -32,6 +32,7 @@ export const contentCanvasTemplate: CarouselTemplate = {
     bodyFont: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     bodySize: 40,          // Aumentado de 30 para 40
     bodyWeight: 'normal',
+    bodyStyle: 'normal',
     headerFont: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     headerSize: 12
   },

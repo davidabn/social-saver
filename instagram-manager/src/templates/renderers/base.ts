@@ -626,21 +626,29 @@ export function percentToPixel(percent: number, dimension: 'width' | 'height'): 
 export function createFontString(
   size: number,
   font: string,
-  weight: string = 'normal',
+  weight: string | number = 'normal',
   style: string = 'normal'
 ): string {
+  // Garante que o nome da fonte está entre aspas se contiver espaços
+  const fontFamily = font.includes(' ') && !font.includes('"') && !font.includes("'")
+    ? `"${font}"`
+    : font
   // Formato: "italic normal 52px Georgia, serif" ou "normal bold 52px Georgia, serif"
-  return `${style} ${weight} ${size}px ${font}`
+  return `${style} ${weight} ${size}px ${fontFamily}, sans-serif`
 }
 
 // Cria string de fonte condensed bold (para headlines em UPPERCASE)
 export function createCondensedFontString(
   size: number,
   font: string,
-  weight: string = 'bold'
+  weight: string | number = 'bold'
 ): string {
+  // Garante que o nome da fonte está entre aspas se contiver espaços
+  const fontFamily = font.includes(' ') && !font.includes('"') && !font.includes("'")
+    ? `"${font}"`
+    : font
   // Formato: "bold 44px Impact, sans-serif"
-  return `${weight} ${size}px ${font}`
+  return `${weight} ${size}px ${fontFamily}, sans-serif`
 }
 
 // Resolve o nome da fonte para o CSS font-family correto
@@ -648,7 +656,13 @@ export function resolveFont(fontName: string | undefined, fallback: string): str
   if (!fontName) return fallback
   // Tenta buscar no catálogo de fontes
   const catalogFamily = getFontFamilyFromCatalog(fontName)
-  return catalogFamily || fontName
+  const family = catalogFamily || fontName
+
+  // Garante aspas se houver espaços e não houver aspas
+  if (family.includes(' ') && !family.includes('"') && !family.includes("'")) {
+    return `"${family}"`
+  }
+  return family
 }
 
 // Cria string de fonte com suporte a fontes customizadas do catálogo
@@ -661,7 +675,8 @@ export function createCustomFontString(
 ): string {
   const fontFamily = resolveFont(fontName, fallbackFont)
   const fontWeight = typeof weight === 'number' ? weight : weight
-  return `${style} ${fontWeight} ${size}px ${fontFamily}`
+  // Adiciona sans-serif como fallback genérico para evitar falhas silenciosas do canvas
+  return `${style} ${fontWeight} ${size}px ${fontFamily}, sans-serif`
 }
 
 // Calcula tamanho de fonte dinâmico baseado no espaço disponível e quantidade de texto

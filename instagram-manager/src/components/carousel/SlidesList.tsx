@@ -17,6 +17,14 @@ interface SlidesListProps {
   headerTexts?: HeaderTexts
   brandingText: string
   customPalette?: ColorPalette
+  personaFonts?: {
+    headlineFont?: string
+    headlineWeight?: number
+    headlineStyle?: 'normal' | 'italic'
+    bodyFont?: string
+    bodyWeight?: number
+    bodyStyle?: 'normal' | 'italic'
+  }
 }
 
 export function SlidesList({
@@ -29,7 +37,8 @@ export function SlidesList({
   template,
   headerTexts,
   brandingText,
-  customPalette
+  customPalette,
+  personaFonts
 }: SlidesListProps) {
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.dataTransfer.setData('slideIndex', index.toString())
@@ -119,6 +128,7 @@ export function SlidesList({
                     template={template}
                     headerTexts={headerTexts}
                     customPalette={customPalette}
+                    personaFonts={personaFonts}
                     isPreview={true}
                     scale={0.12}
                   />
