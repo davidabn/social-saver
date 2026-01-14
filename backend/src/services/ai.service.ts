@@ -1,8 +1,10 @@
-import OpenAI from 'openai'
+import * as OpenAIModule from 'openai'
 import type { SavedContent, Persona, ContentType, Transcription } from '../types/index.js'
 
+const OpenAI = (OpenAIModule as any).default || OpenAIModule
+
 export class AIService {
-  private openai: OpenAI | null = null
+  private openai: InstanceType<typeof OpenAI> | null = null
 
   constructor() {
     if (process.env.OPENAI_API_KEY) {
@@ -340,9 +342,9 @@ Cada roteiro seu é uma obra-prima de psicologia comportamental aplicada ao form
     }
 
     const sourceText = transcription?.full_text || originalContent.caption || 'No text content available.'
-    
+
     let userPrompt = `Original Content (${originalContent.content_type}):\n${sourceText}\n\n`
-    
+
     if (instructions) {
       userPrompt += `Specific Instructions: ${instructions}\n\n`
     }
