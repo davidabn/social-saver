@@ -77,7 +77,12 @@ app.use(notFoundHandler)
 app.use(errorHandler)
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`[Server] Running on http://localhost:${PORT}`)
-  console.log(`[Server] Environment: ${process.env.NODE_ENV ?? 'development'}`)
-})
+// Start server if not running in Vercel (Vercel exports the app)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`[Server] Running on http://localhost:${PORT}`)
+    console.log(`[Server] Environment: ${process.env.NODE_ENV ?? 'development'}`)
+  })
+}
+
+export default app
