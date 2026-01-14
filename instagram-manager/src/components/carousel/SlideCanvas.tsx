@@ -359,7 +359,7 @@ export function SlideCanvas({
     const isClassic = template.id === 'classic'
     if ((slide.slideNumber === 1 || isClassic) && (layoutType === 'cover' || layoutType === 'imageTop')) {
       const defaultBrandingX = isClassic ? 4 : layout.headlineArea.x
-      const defaultBrandingY = (layoutPositions?.headlineY ?? layout.headlineArea.y) - 8
+      const defaultBrandingY = isClassic ? 6 : (layoutPositions?.headlineY ?? layout.headlineArea.y) - 8
 
       const brandingX = layoutPositions?.brandingX ?? defaultBrandingX
       const brandingY = layoutPositions?.brandingY ?? defaultBrandingY

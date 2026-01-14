@@ -110,7 +110,7 @@ export async function renderCoverLayout(
     const baseHeadlineY = layoutPositions?.headlineY !== undefined
       ? layoutPositions.headlineY
       : layout.headlineArea.y
-    const defaultBrandingY = baseHeadlineY - 8 // 8% acima do headline
+    const defaultBrandingY = template.id === 'classic' ? 6 : baseHeadlineY - 8 // No Classic fica no topo (6%), nos outros acima do headline
     const brandingY_pct = layoutPositions?.brandingY ?? defaultBrandingY
     const brandingY = percentToPixel(brandingY_pct, 'height')
     const brandingScale = layoutPositions?.brandingScale ?? 1.0
