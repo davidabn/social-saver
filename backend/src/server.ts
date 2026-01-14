@@ -1,8 +1,11 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import helmet from 'helmet'
-import rateLimit from 'express-rate-limit'
+import * as helmetModule from 'helmet'
+import * as rateLimitModule from 'express-rate-limit'
+
+const helmet = (helmetModule as any).default || helmetModule
+const rateLimit = (rateLimitModule as any).default || rateLimitModule
 
 import authRoutes from './routes/auth.routes.js'
 import contentsRoutes from './routes/contents.routes.js'
