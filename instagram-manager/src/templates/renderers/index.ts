@@ -118,6 +118,11 @@ export function getDefaultLayoutForSlide(
     return sequence[index]
   }
 
+  // Se o template tiver apenas um layout definido na sequência (ex: Classic), usa ele para todos
+  if (sequence.length === 1) {
+    return sequence[0]
+  }
+
   // Se não houver layout definido para essa posição, usa o mais comum
   return 'imageTop'
 }
