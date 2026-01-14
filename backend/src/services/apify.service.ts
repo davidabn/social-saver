@@ -41,7 +41,7 @@ interface ApifyInstagramPost {
     displayResources?: ApifyImageResource[]
     videoUrl?: string
     video_url?: string // Added for robustness based on log analysis
-  }> 
+  }>
 }
 
 // Our normalized format
@@ -103,10 +103,10 @@ function extractCarouselMedia(post: ApifyInstagramPost): CarouselMedia[] | null 
   return post.childPosts.map((child, index) => {
     // Prefer videoUrl (camelCase), fallback to video_url (snake_case)
     const videoUrl = child.videoUrl || child.video_url
-    
+
     // Determine if it's a video based on type or presence of a video URL
     const isVideo = child.type?.toLowerCase() === 'video' || !!videoUrl
-    
+
     console.log(`[Apify] Child ${index}: Type='${child.type}', videoUrl='${child.videoUrl}', video_url='${child.video_url}', isVideo=${isVideo}`)
 
     const bestImageUrl = getBestImageUrl(child)
@@ -131,8 +131,8 @@ function extractImageUrls(post: ApifyInstagramPost): string[] | null {
       images.push(getBestImageUrl(child))
     }
   } else if (post.images && post.images.length > 0 && !post.displayResources) {
-      // Fallback: if no childPosts and no displayResources, but we have images array, use it.
-      images.push(...post.images)
+    // Fallback: if no childPosts and no displayResources, but we have images array, use it.
+    images.push(...post.images)
   }
 
   // Remove duplicates
@@ -347,7 +347,7 @@ export async function scrapeYouTubeVideo(youtubeUrl: string): Promise<ScrapedIns
         const blocks = sub.srt.split(/\n\s*\n/)
         const segments: Array<{ time: string, seconds: number, text: string }> = []
 
-        blocks.forEach(block => {
+        blocks.forEach((block: string) => {
           const lines = block.trim().split('\n')
           if (lines.length < 3) return
 
@@ -357,7 +357,7 @@ export async function scrapeYouTubeVideo(youtubeUrl: string): Promise<ScrapedIns
 
           const h = parseInt(timeMatch[1]), m = parseInt(timeMatch[2]), s = parseInt(timeMatch[3])
           const totalSeconds = h * 3600 + m * 60 + s
-          const timestamp = h > 0 
+          const timestamp = h > 0
             ? `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
             : `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 
@@ -463,36 +463,36 @@ export async function scrapeTikTokVideo(tiktokUrl: string): Promise<ScrapedInsta
 
     // Determine content type (TikToks are usually reels/videos, sometimes slideshows)
     const isSlideshow = video.isSlideshow || (video.slideshowImages && video.slideshowImages.length > 0)
-    
+
     // Map slideshow images if present
     let carouselMedia: CarouselMedia[] | null = null
     let imageUrls: string[] | null = null
-    
+
     if (isSlideshow && video.slideshowImages) {
-        imageUrls = video.slideshowImages.map((img: any) => img.url)
-        carouselMedia = video.slideshowImages.map((img: any) => ({
-            type: 'image',
-            url: img.url
-        }))
+      imageUrls = video.slideshowImages.map((img: any) => img.url)
+      carouselMedia = video.slideshowImages.map((img: any) => ({
+        type: 'image',
+        url: img.url
+      }))
     }
 
     // Try to extract subtitles/transcription if available from the scraper
     let transcription = '';
     if (video.subtitles && Array.isArray(video.subtitles) && video.subtitles.length > 0) {
-        // Try to find the first subtitle that has text or srt
-        const sub = video.subtitles.find((s: any) => s && (s.srt || s.text));
-        if (sub) {
-            transcription = sub.srt || sub.text || '';
-        }
+      // Try to find the first subtitle that has text or srt
+      const sub = video.subtitles.find((s: any) => s && (s.srt || s.text));
+      if (sub) {
+        transcription = sub.srt || sub.text || '';
+      }
     }
 
     // Try to find video URL in multiple places
-    const videoUrl = video.videoUrl || 
-                     video.videoMeta?.downloadAddr || 
-                     video.videoMeta?.playAddr || 
-                     video.downloadAddr || 
-                     video.playAddr || 
-                     null;
+    const videoUrl = video.videoUrl ||
+      video.videoMeta?.downloadAddr ||
+      video.videoMeta?.playAddr ||
+      video.downloadAddr ||
+      video.playAddr ||
+      null;
 
     return {
       post_id: video.id,
