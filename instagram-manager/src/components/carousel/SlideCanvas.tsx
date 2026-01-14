@@ -356,9 +356,9 @@ export function SlideCanvas({
       })
     }
 
-    // Branding bounds
-    if (slide.slideNumber === 1 && (layoutType === 'cover' || layoutType === 'imageTop')) {
-      const isClassic = template.id === 'classic'
+    // Branding bounds (Capa: Slide 1 | Classic: Todos os slides)
+    const isClassic = template.id === 'classic'
+    if ((slide.slideNumber === 1 || isClassic) && (layoutType === 'cover' || layoutType === 'imageTop')) {
       const defaultBrandingX = isClassic ? 4 : layout.headlineArea.x
       const defaultBrandingY = (layoutPositions?.headlineY ?? layout.headlineArea.y) - 8
 

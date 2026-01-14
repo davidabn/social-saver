@@ -104,8 +104,9 @@ export async function renderCoverLayout(
   // 4. Desenha header (com cor ajustada ao fundo)
   drawHeader(ctx, template, headerTexts, layout.backgroundColor)
 
-  // 4.5. Desenha branding (apenas no slide 1)
-  if (slide.slideNumber === 1) {
+  // 4.5. Desenha branding (Capa: Slide 1 | Classic: Todos os slides)
+  const shouldDrawBranding = slide.slideNumber === 1 || template.id === 'classic'
+  if (shouldDrawBranding) {
     const baseHeadlineY = layoutPositions?.headlineY !== undefined
       ? layoutPositions.headlineY
       : layout.headlineArea.y
@@ -129,8 +130,8 @@ export async function renderCoverLayout(
       const brandingText = profileBranding?.displayName || profileBranding?.username || 'Social Saver'
       ctx.fillText(brandingText, brandingX, brandingY)
       ctx.restore()
-    } else if (profileBranding && (profileBranding.displayName || profileBranding.username)) {
-      // Estilo moderno: Card com avatar e ícone
+    } else if (slide.slideNumber === 1 && profileBranding && (profileBranding.displayName || profileBranding.username)) {
+      // Estilo moderno: Card com avatar e ícone (Apenas slide 1)
       const brandingY_card = percentToPixel(brandingY_pct, 'height')
       await drawProfileBranding(
         ctx,
@@ -324,5 +325,8 @@ export async function renderCoverLayout(
   }
 
   // 7. Desenha footer (apenas slides 2+, com cor ajustada ao fundo)
-  drawFooter(ctx, template, headerTexts, slide.slideNumber, layout.backgroundColor)
+  // EXCEÇÃO: Template Classic não possui footer
+  if (template.id !== 'classic') {
+    drawFooter(ctx, template, headerTexts, slide.slideNumber, layout.backgroundColor)
+  }
 }
