@@ -11,7 +11,7 @@ import { SearchFilters } from '@/components/SearchFilters'
 import { useContents, useDeleteContent, type ContentFilters } from '@/hooks/useContents'
 import type { SavedContent } from '@/types'
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null

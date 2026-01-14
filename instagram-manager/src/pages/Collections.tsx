@@ -17,7 +17,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react'
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null

@@ -2,7 +2,7 @@ import type { CarouselTemplate, HeaderTexts, GradientOverlayConfig } from '@/typ
 import { CANVAS_WIDTH, CANVAS_HEIGHT, ProfileBranding, TextSegment } from '@/types/carousel'
 import { getFontFamily as getFontFamilyFromCatalog } from '@/templates/fonts'
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 // URL da imagem mockup para slides sem imagem
 export const MOCKUP_IMAGE_URL = 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1080&q=80'

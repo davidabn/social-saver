@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 // Tipo da fonte do usuário
 export interface UserFont {

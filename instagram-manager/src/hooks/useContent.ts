@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { ContentWithTranscription } from '@/types'
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 async function getAuthHeaders() {
   const { data: { session } } = await supabase.auth.getSession()

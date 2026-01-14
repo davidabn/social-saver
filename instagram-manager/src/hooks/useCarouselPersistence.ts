@@ -4,7 +4,7 @@ import type { CarouselDesign, CarouselSlide } from '@/types/carousel'
 import type { HeaderTexts } from '@/types/template'
 import type { ColorPalette } from '@/templates/palettes'
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 async function getAuthHeaders() {
   const { data: { session } } = await supabase.auth.getSession()

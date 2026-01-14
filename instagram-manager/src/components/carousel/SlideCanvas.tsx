@@ -5,6 +5,7 @@ import type { ColorPalette } from '@/templates/palettes'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PREVIEW_SCALE, getPositionKey, getLayoutPositions } from '@/types/carousel'
 import { renderSlideWithTemplate, wrapText, createCustomFontString } from '@/templates/renderers'
 import { InlineTextEditor } from './InlineTextEditor'
+import { API_URL } from '@/config'
 
 // Estado da edição inline
 interface InlineEditState {
@@ -21,7 +22,7 @@ interface InlineEditState {
   }
 }
 
-const API_URL = 'http://localhost:3001/api'
+
 
 function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null

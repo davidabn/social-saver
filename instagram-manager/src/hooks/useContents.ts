@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { SavedContent, PaginatedResponse } from '@/types'
 
-const API_URL = 'http://localhost:3001/api'
+import { API_URL } from '@/config'
 
 export interface ContentFilters {
   page?: number
