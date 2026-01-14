@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useContent } from '@/hooks/useContent'
 import { useGenerateContent } from '@/hooks/useAI'
+import type { FeedItem, TranscriptionStatus, ContentWithTranscription } from '@/types' // Add imports
 import {
   Heart,
   MessageCircle,
@@ -38,6 +39,8 @@ interface ContentDetailModalProps {
   contentId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  feedItem?: FeedItem | null // Add feedItem
+  onFeedItemSaved?: () => void // Add callbak
 }
 
 const API_URL = 'http://localhost:3001/api'
@@ -84,9 +87,47 @@ function formatNumber(num: number | null | undefined): string {
   return num.toString()
 }
 
-export function ContentDetailModal({ contentId, open, onOpenChange }: ContentDetailModalProps) {
+export function ContentDetailModal({ contentId, open, onOpenChange, feedItem, onFeedItemSaved }: ContentDetailModalProps) {
   const navigate = useNavigate()
-  const { data: content, isLoading, error } = useContent(contentId)
+  const { data: apiContent, isLoading, error } = useContent(contentId)
+
+  // Silenciar aviso de não uso por enquanto (será usado para implementar botão salvar futuramente)
+  useEffect(() => {
+    if (onFeedItemSaved) { /* placeholder */ }
+  }, [onFeedItemSaved])
+
+  // Map feedItem to SavedContent structure for display
+  const content: ContentWithTranscription | null | undefined = (apiContent as ContentWithTranscription) || (feedItem ? {
+    id: feedItem.id,
+    user_id: '',
+    instagram_url: feedItem.url,
+    post_id: feedItem.post_id,
+    platform: feedItem.platform,
+    content_type: feedItem.content_type,
+    author_username: feedItem.profile?.username || '',
+    author_name: null,
+    author_profile_pic: feedItem.profile?.avatar_url || null,
+    author_verified: false,
+    caption: feedItem.caption,
+    thumbnail_url: feedItem.thumbnail_url,
+    video_url: null,
+    image_urls: null,
+    carousel_media: null,
+    likes_count: 0,
+    comments_count: 0,
+    views_count: null,
+    plays_count: null,
+    posted_at: feedItem.posted_at,
+    saved_at: '',
+    is_processed: false,
+    transcription_status: 'pending' as TranscriptionStatus,
+    transcription: null,
+    collection_id: null,
+    generated_script: null,
+    generated_scripts: null,
+    created_at: '',
+    updated_at: ''
+  } : null)
   const generateContent = useGenerateContent()
   const [copied, setCopied] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)

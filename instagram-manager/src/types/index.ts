@@ -107,3 +107,28 @@ export interface GenerateContentInput {
 }
 
 
+
+export interface MonitoredProfile {
+  id: string
+  username: string
+  avatar_url: string | null
+  platform: Platform
+  created_at: string
+}
+
+export interface FeedItem {
+  id: string
+  profile_id: string
+  platform: Platform
+  content_type: ContentType
+  post_id: string
+  url: string
+  thumbnail_url: string | null
+  caption: string | null
+  posted_at: string
+  is_saved: boolean
+  profile?: {
+    username: string
+    avatar_url: string | null
+  }
+}
