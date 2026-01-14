@@ -34,7 +34,7 @@ export function getProxyImageUrl(url: string | null): string | null {
   if (!url) return null
   if (url.startsWith('data:')) return url
   if (url.includes('/api/proxy/')) return url
-  
+
   const bypassHosts = [
     'unsplash.com',
     'pexels.com',
@@ -371,27 +371,28 @@ export function drawTextWithUnderline(
 
   // Depois adiciona sublinhados nas palavras destacadas
   const words = text.split(' ')
-  let currentX = x
 
   ctx.save()
   ctx.strokeStyle = underlineColor
   ctx.lineWidth = underlineThickness
 
-  for (const word of words) {
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i]
     const cleanWord = word.replace(/[.,!?;:]/g, '').toLowerCase()
-    const wordWidth = ctx.measureText(word + ' ').width
 
     if (highlightWords.some(hw => cleanWord.includes(hw.toLowerCase()))) {
-      const textMetrics = ctx.measureText(word)
+      // Calcula a posição X precisa medindo o prefixo da linha até esta palavra
+      const prefix = words.slice(0, i).join(' ') + (i > 0 ? ' ' : '')
+      const wordX = x + ctx.measureText(prefix).width
+      const wordWidth = ctx.measureText(word).width
+
       const underlineY = y + 8  // Posição abaixo do texto
 
       ctx.beginPath()
-      ctx.moveTo(currentX, underlineY)
-      ctx.lineTo(currentX + textMetrics.width, underlineY)
+      ctx.moveTo(wordX, underlineY)
+      ctx.lineTo(wordX + wordWidth, underlineY)
       ctx.stroke()
     }
-
-    currentX += wordWidth
   }
 
   ctx.restore()
@@ -948,11 +949,11 @@ function consolidateSegments(segments: TextSegment[]): TextSegment[] {
 
     // Se o último segmento tem o mesmo estilo, mescla
     if (last &&
-        last.bold === segment.bold &&
-        last.italic === segment.italic &&
-        last.underline === segment.underline &&
-        last.font === segment.font &&
-        last.color === segment.color) {
+      last.bold === segment.bold &&
+      last.italic === segment.italic &&
+      last.underline === segment.underline &&
+      last.font === segment.font &&
+      last.color === segment.color) {
       last.text += segment.text
     } else {
       result.push({ ...segment })
@@ -1049,9 +1050,10 @@ export function renderRichText(
     }
 
     // Renderizar cada segmento da linha
-    let currentX = lineX
+    // Para evitar drift de kerning entre segmentos, sempre medimos o offset desde o início da linha
+    for (let i = 0; i < line.length; i++) {
+      const segment = line[i]
 
-    for (const segment of line) {
       // Aplicar estilo do segmento
       const font = segment.font || baseStyle.fontFamily
       const weight = segment.bold ? 'bold' : baseStyle.fontWeight
@@ -1061,29 +1063,32 @@ export function renderRichText(
       ctx.font = `${style} ${weight} ${baseStyle.fontSize}px ${font}`
       ctx.fillStyle = color
 
+      // Calcula a posição X do segmento somando a largura dos segmentos anteriores
+      let segmentX = lineX
+      if (i > 0) {
+        const previousSegmentsWidth = measureLineWidth(ctx, line.slice(0, i), baseStyle)
+        segmentX += previousSegmentsWidth
+      }
+
       // Aplicar uppercase se configurado
       const textToDraw = baseStyle.uppercase ? segment.text.toUpperCase() : segment.text
 
       // Desenhar texto
-      ctx.fillText(textToDraw, currentX, currentY)
-
-      // Medir largura do texto
-      const textWidth = ctx.measureText(textToDraw).width
+      ctx.fillText(textToDraw, segmentX, currentY)
 
       // Desenhar sublinhado se necessário
       if (segment.underline) {
+        const textWidth = ctx.measureText(textToDraw).width
         ctx.save()
         ctx.strokeStyle = color
         ctx.lineWidth = 2
         const underlineY = currentY + baseStyle.fontSize + 4
         ctx.beginPath()
-        ctx.moveTo(currentX, underlineY)
-        ctx.lineTo(currentX + textWidth, underlineY)
+        ctx.moveTo(segmentX, underlineY)
+        ctx.lineTo(segmentX + textWidth, underlineY)
         ctx.stroke()
         ctx.restore()
       }
-
-      currentX += textWidth
     }
 
     currentY += actualLineHeight
@@ -1156,11 +1161,11 @@ function splitIntoLines(
         const lastSeg = currentLine[currentLine.length - 1]
 
         if (lastSeg &&
-            lastSeg.bold === segment.bold &&
-            lastSeg.italic === segment.italic &&
-            lastSeg.underline === segment.underline &&
-            lastSeg.font === segment.font &&
-            lastSeg.color === segment.color) {
+          lastSeg.bold === segment.bold &&
+          lastSeg.italic === segment.italic &&
+          lastSeg.underline === segment.underline &&
+          lastSeg.font === segment.font &&
+          lastSeg.color === segment.color) {
           lastSeg.text += wordWithSpace
         } else {
           currentLine.push({

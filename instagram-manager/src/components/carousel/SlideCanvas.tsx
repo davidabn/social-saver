@@ -3,7 +3,7 @@ import type { CarouselSlide, ProfileBranding } from '@/types/carousel'
 import type { CarouselTemplate, HeaderTexts } from '@/types/template'
 import type { ColorPalette } from '@/templates/palettes'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PREVIEW_SCALE, getPositionKey, getLayoutPositions } from '@/types/carousel'
-import { renderSlideWithTemplate, wrapText, percentToPixel, createFontString, createCondensedFontString, createCustomFontString } from '@/templates/renderers'
+import { renderSlideWithTemplate, wrapText, createFontString, createCondensedFontString, createCustomFontString } from '@/templates/renderers'
 import { InlineTextEditor } from './InlineTextEditor'
 
 // Estado da edição inline
@@ -167,7 +167,7 @@ export function SlideCanvas({
       renderSlideWithTemplate(ctx, slide, template, headerTexts, profileBranding, customPalette)
         .then(() => {
           // Calcular bounds dos elementos após renderização
-          const bounds = calculateElementBounds(slide, template, headerTexts, ctx)
+          const bounds = calculateElementBounds(slide, template, ctx)
           setElementBounds(bounds)
 
           if (onCanvasReadyRef.current) {
@@ -188,7 +188,6 @@ export function SlideCanvas({
   const calculateElementBounds = useCallback((
     slide: CarouselSlide,
     template: CarouselTemplate,
-    headerTexts: HeaderTexts,
     ctx?: CanvasRenderingContext2D
   ): ElementBounds[] => {
     const bounds: ElementBounds[] = []
@@ -365,12 +364,26 @@ export function SlideCanvas({
       const brandingX = layoutPositions?.brandingX ?? defaultBrandingX
       const brandingY = layoutPositions?.brandingY ?? defaultBrandingY
 
+      // Medir largura real do branding para o hit area
+      let brandingWidth = isClassic ? 300 : 450
+      if (ctx) {
+        ctx.save()
+        if (isClassic) {
+          ctx.font = 'italic 600 42px Georgia, serif'
+        } else {
+          ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, sans-serif'
+        }
+        const text = isClassic ? brandingText : (profileBranding?.displayName || profileBranding?.username || 'Branding')
+        brandingWidth = ctx.measureText(text).width
+        ctx.restore()
+      }
+
       bounds.push({
         element: 'branding',
         x: (brandingX / 100) * CANVAS_WIDTH - hitPadding,
         y: (brandingY / 100) * CANVAS_HEIGHT - hitPadding,
-        width: (isClassic ? 300 : 450) + hitPadding * 2,
-        height: (isClassic ? 80 : 150),
+        width: brandingWidth + hitPadding * 2,
+        height: (isClassic ? 60 : 150),
         currentYPercent: brandingY,
         currentXPercent: brandingX
       })
@@ -526,7 +539,6 @@ export function SlideCanvas({
 
       const rect = canvas.getBoundingClientRect()
       const layoutType = slide.layoutType || 'cover'
-      const positionKey = getLayoutPositions(slide.customPositions, template.id, layoutType) ? getPositionKey(template.id, layoutType) : ''
       const layoutPositions = getLayoutPositions(slide.customPositions, template.id, layoutType)
 
       // Modo PAN - mover imagem dentro do frame
