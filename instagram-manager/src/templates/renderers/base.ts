@@ -360,19 +360,21 @@ export function drawTextWithUnderline(
 ) {
   if (!text) return
 
-  // Se não houver palavras para destacar, desenha normalmente
-  if (highlightWords.length === 0) {
-    ctx.fillText(text, x, y)
-    return
-  }
+  ctx.save()
+  ctx.textAlign = 'left'
 
   // Desenha o texto normalmente primeiro
   ctx.fillText(text, x, y)
 
+  // Se não houver palavras para destacar, pronto
+  if (highlightWords.length === 0) {
+    ctx.restore()
+    return
+  }
+
   // Depois adiciona sublinhados nas palavras destacadas
   const words = text.split(' ')
 
-  ctx.save()
   ctx.strokeStyle = underlineColor
   ctx.lineWidth = underlineThickness
 
@@ -1030,7 +1032,9 @@ export function renderRichText(
   const actualLineHeight = baseStyle.fontSize * lineHeight
 
   ctx.save()
-  ctx.textAlign = baseStyle.textAlign || 'left'
+  // SEMPRE usar textAlign='left' para renderizar segmentos manuais
+  // O alinhamento (centro/direita) é tratado no cálculo de lineX
+  ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
 
   // Dividir em linhas respeitando quebras e maxWidth
@@ -1146,7 +1150,10 @@ function splitIntoLines(
       for (let j = 0; j < words.length; j++) {
         const word = words[j]
         const wordWithSpace = j < words.length - 1 ? word + ' ' : word
-        const wordWidth = ctx.measureText(wordWithSpace).width
+
+        // Aplicar uppercase para medição se configurado
+        const textToMeasure = baseStyle.uppercase ? wordWithSpace.toUpperCase() : wordWithSpace
+        const wordWidth = ctx.measureText(textToMeasure).width
 
         // Se a palavra não cabe na linha atual
         if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
@@ -1207,7 +1214,8 @@ function measureLineWidth(
     const style = segment.italic ? 'italic' : (baseStyle.fontStyle || 'normal')
     ctx.font = `${style} ${weight} ${baseStyle.fontSize}px ${font}`
 
-    width += ctx.measureText(segment.text).width
+    const textToMeasure = baseStyle.uppercase ? segment.text.toUpperCase() : segment.text
+    width += ctx.measureText(textToMeasure).width
   }
 
   return width
